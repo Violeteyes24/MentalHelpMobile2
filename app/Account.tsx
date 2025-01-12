@@ -3,10 +3,13 @@ import { supabase } from '../lib/supabase'
 import { StyleSheet, View, Alert } from 'react-native'
 import { Button, Input } from '@rneui/themed'
 import { Session } from '@supabase/supabase-js'
+import { useRouter } from 'expo-router'
 
 export default function Account({ session }: { session: Session }) {
     const [loading, setLoading] = useState(true)
     const [name, setName] = useState('')
+    const router = useRouter()
+    const navigateToHome = () => router.push('/(tabs)/index.tsx');
 
     useEffect(() => {
         if (session) getProfile()
@@ -87,6 +90,10 @@ export default function Account({ session }: { session: Session }) {
 
             <View style={styles.verticallySpaced}>
                 <Button title="Sign Out" onPress={() => supabase.auth.signOut()} color='#34d399' />
+            </View>
+            
+            <View style={styles.verticallySpaced}>
+                <Button title="Home" onPress={() => navigateToHome } color='#34d399' />
             </View>
         </View>
     )
