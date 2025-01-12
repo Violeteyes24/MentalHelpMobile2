@@ -81,11 +81,12 @@ export default function Account({ session }: { session: Session }) {
                     title={loading ? 'Loading ...' : 'Update'}
                     onPress={() => updateProfile({ name })}
                     disabled={loading}
+                    color='#34d399'
                 />
             </View>
 
             <View style={styles.verticallySpaced}>
-                <Button title="Sign Out" onPress={() => supabase.auth.signOut()} />
+                <Button title="Sign Out" onPress={() => supabase.auth.signOut()} color='#34d399' />
             </View>
         </View>
     )
