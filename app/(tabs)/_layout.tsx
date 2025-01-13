@@ -1,14 +1,14 @@
+// app/(tabs)/_layout.tsx
 import { Tabs } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Animated, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import Drawer from '../components/navbars/drawer';
-import BottomNavBar from '../components/navbars/drawer';
+import Drawer from '../../components/navbars/drawer';
+import BottomNavBar from '../../components/navbars/bottomNavBar';
 
 const { width } = Dimensions.get('window');
 
 export default function TabLayout() {
-
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const slideAnim = useState(new Animated.Value(width))[0];
@@ -31,18 +31,49 @@ export default function TabLayout() {
     }
   };
 
-  const navigateToHome = () => router.push('/(tabs)/index.tsx');
-  const navigateToMoodTracker = () => router.push('/(tabs)/moodtracker');
-  const navigateToChatbot = () => router.push('/(tabs)/chatbot');
-  const navigateToAppointment = () => router.push('/(tabs)/appointment');
-
   return (
     <>
-      <Tabs screenOptions={{ headerShown: false }}>
-        <Tabs.Screen name="index" options={{ title: 'Home' }} />
-        <Tabs.Screen name="moodtracker" options={{ title: 'MoodTracker' }} />
-        <Tabs.Screen name="appointment" options={{ title: 'Appointments' }} />
-        <Tabs.Screen name="chatbot" options={{ title: 'Chatbot' }} />
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: { display: drawerOpen ? 'none' : 'flex' }
+        }}
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: 'Home',
+            href: '/(tabs)/'
+          }}
+        />
+        <Tabs.Screen
+          name="moodtracker"
+          options={{
+            title: 'MoodTracker',
+            href: '/(tabs)/moodtracker'
+          }}
+        />
+        <Tabs.Screen
+          name="appointment"
+          options={{
+            title: 'Appointments',
+            href: '/(tabs)/appointment'
+          }}
+        />
+        <Tabs.Screen
+          name="chatbot"
+          options={{
+            title: 'Chatbot',
+            href: '/(tabs)/chatbot'
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: 'Profile',
+            href: '/(tabs)/profile'
+          }}
+        />
       </Tabs>
       <Drawer
         toggleDrawer={toggleDrawer}
@@ -54,10 +85,11 @@ export default function TabLayout() {
         navigateToNotifications={() => router.push('/(tabs)/notifications')}
       />
       <BottomNavBar
-        navigateToHome={navigateToHome}
-        navigateToMoodTracker={navigateToMoodTracker}
-        navigateToChatbot={navigateToChatbot}
-        navigateToAppointment={navigateToAppointment}
+        drawerOpen={drawerOpen}
+        navigateToHome={() => router.push('/(tabs)/')}
+        navigateToMoodTracker={() => router.push('/(tabs)/moodtracker')}
+        navigateToChatbot={() => router.push('/(tabs)/chatbot')}
+        navigateToAppointment={() => router.push('/(tabs)/appointment')}
       />
     </>
   );
