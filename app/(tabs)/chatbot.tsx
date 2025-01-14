@@ -98,7 +98,13 @@ const styles = StyleSheet.create({
         padding: 12,
         borderRadius: 8,
         margin: 4,
-        width: '48%',
+        width: '30%',
+        // Use flexbox to make the buttons horizontal
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-between', // Space buttons evenly
+        alignItems: 'center', // Center text vertically
+        marginBottom: '6%'
     },
     questionText: {
         color: 'white',

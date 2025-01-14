@@ -9,7 +9,7 @@ export default function Account({ session }: { session: Session }) {
     const [loading, setLoading] = useState(true)
     const [name, setName] = useState('')
     const router = useRouter()
-    const navigateToHome = () => router.push('/app/(tabs)/index.tsx');
+    const navigateToHome = () => router.push('/app/(tabs)/index');
 
     useEffect(() => {
         if (session) getProfile()
@@ -99,9 +99,9 @@ export default function Account({ session }: { session: Session }) {
                 />
             </View>
             
-            <View style={styles.verticallySpaced}>
+            {/* <View style={styles.verticallySpaced}>
                 <Button title="Home" onPress={() => navigateToHome } color='#34d399' />
-            </View>
+            </View> */}
         </View>
     )
 }
