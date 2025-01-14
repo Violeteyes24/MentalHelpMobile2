@@ -29,7 +29,7 @@ export default function App() {
   }
 
   return (
-    <Stack>
+    <Stack screenOptions={{ headerShown: false }}>
       {session?.user ? (
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       ) : ( // it showed up this instead, my index.tsx or (tabs). so Its authenticated by default (?)
