@@ -2,6 +2,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Pressable } from 'react-native';
 import { Icon } from '@rneui/themed';
 import { supabase } from '../../lib/supabase';
+import { useRouter } from 'expo-router';
 
 interface DrawerProps {
     navigateToAccount: () => void; // Explicitly type as a function that returns void
@@ -14,6 +15,7 @@ interface DrawerProps {
 }
 
 const Drawer = ({ navigateToAccount, navigateToMessages, navigateToNotifications, toggleDrawer, closeDrawer, slideAnim, drawerOpen }: DrawerProps) => {
+    const router = useRouter()
     return (
         <>
             {/* Menu Icon */}
@@ -56,6 +58,8 @@ const Drawer = ({ navigateToAccount, navigateToMessages, navigateToNotifications
                                 console.error('Error signing out:', error.message);
                             } else {
                                 console.log('Successfully logged out');
+                                // Sign out the user
+                                router.push('/app/Auth.tsx'); 
                             }
                         } catch (err) {
                             console.error('Unexpected error during sign out:', err);

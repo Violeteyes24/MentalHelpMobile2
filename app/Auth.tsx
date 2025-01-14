@@ -1,3 +1,4 @@
+// app/(tabs)/Auth.tsx
 import React, { useState } from 'react'
 import { Alert, StyleSheet, View, AppState, Text } from 'react-native'
 import { supabase } from '../lib/supabase'

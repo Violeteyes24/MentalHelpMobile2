@@ -89,7 +89,14 @@ export default function Account({ session }: { session: Session }) {
             </View>
 
             <View style={styles.verticallySpaced}>
-                <Button title="Sign Out" onPress={() => supabase.auth.signOut()} color='#34d399' />
+                <Button
+                    title="Sign Out"
+                    onPress={async () => {
+                        await supabase.auth.signOut(); // Sign out the user
+                        router.push('/app/Auth.tsx'); // Navigate to the Auth page
+                    }}
+                    color="#34d399"
+                />
             </View>
             
             <View style={styles.verticallySpaced}>
