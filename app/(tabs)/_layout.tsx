@@ -81,10 +81,10 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="profile"
+          name="account"
           options={{
-            title: 'Profile',
-            tabBarLabel: 'Profile',
+            title: 'account',
+            tabBarLabel: 'account',
           }}
         />
       </Tabs>
@@ -94,7 +94,7 @@ export default function TabLayout() {
         closeDrawer={closeDrawer}
         slideAnim={slideAnim}
         drawerOpen={drawerOpen}
-        navigateToProfile={() => navigate('/(tabs)/profile')}
+        navigateToAccount={() => navigate('/(tabs)/account')}
         navigateToMessages={() => navigate('/(tabs)/messages')}
         navigateToNotifications={() => navigate('/(tabs)/notifications')}
       />

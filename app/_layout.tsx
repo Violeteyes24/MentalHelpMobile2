@@ -32,7 +32,7 @@ export default function App() {
     <Stack>
       {session?.user ? (
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      ) : ( // it showed up this instead, my index.tsx or (tabs).
+      ) : ( // it showed up this instead, my index.tsx or (tabs). so Its authenticated by default (?)
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         // but it did not go to Auth ? 
       )}

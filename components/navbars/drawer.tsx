@@ -1,6 +1,7 @@
 // /components/Drawer.tsx
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Pressable } from 'react-native';
 import { Icon } from '@rneui/themed';
+import { supabase } from '../../lib/supabase';
 
 interface DrawerProps {
     navigateToAccount: () => void; // Explicitly type as a function that returns void
@@ -48,9 +49,21 @@ const Drawer = ({ navigateToAccount, navigateToMessages, navigateToNotifications
                     <Text style={styles.drawerItem}>Notifications</Text>
                 </TouchableOpacity>
                 <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-                    <TouchableOpacity onPress={() => console.log('Logout pressed')}>
+                    <TouchableOpacity onPress={async () => {
+                        try {
+                            const { error } = await supabase.auth.signOut();
+                            if (error) {
+                                console.error('Error signing out:', error.message);
+                            } else {
+                                console.log('Successfully logged out');
+                            }
+                        } catch (err) {
+                            console.error('Unexpected error during sign out:', err);
+                        }
+                    }}>
                         <Text style={[styles.drawerItem, styles.logout]}>Logout</Text>
                     </TouchableOpacity>
+
                 </View>
             </Animated.View>
         </>
