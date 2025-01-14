@@ -2,16 +2,21 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Icon } from '@rneui/themed';
 
+// components/BottomNavBar.tsx
 interface BottomNavBarProps {
-    navigateToHome: () => void; // Explicitly type as a function that returns void
+    navigateToHome: () => void;
     navigateToMoodTracker: () => void;
     navigateToChatbot: () => void;
     navigateToAppointment: () => void;
+    drawerOpen: boolean;  // Add this
 }
 
-const BottomNavBar = ({ navigateToHome, navigateToMoodTracker, navigateToChatbot, navigateToAppointment }: BottomNavBarProps) => {
+const BottomNavBar = ({ navigateToHome, navigateToMoodTracker, navigateToChatbot, navigateToAppointment, drawerOpen }: BottomNavBarProps) => {
     return (
-        <View style={styles.navBar}>
+            <View style={[
+                styles.navBar,
+                { display: drawerOpen ? 'none' : 'flex' }  // Add this
+            ]}>
             <TouchableOpacity style={styles.navItem} onPress={navigateToHome}>
                 <Icon name="heart" type="font-awesome" color="#fff" size={24} />
                 <Text style={styles.navText}>Home</Text>

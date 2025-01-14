@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Pressab
 import { Icon } from '@rneui/themed';
 
 interface DrawerProps {
-    navigateToProfile: () => void; // Explicitly type as a function that returns void
+    navigateToAccount: () => void; // Explicitly type as a function that returns void
     navigateToMessages: () => void;
     navigateToNotifications: () => void;
     toggleDrawer: () => void;
@@ -12,7 +12,7 @@ interface DrawerProps {
     drawerOpen: boolean; // Explicitly type as a boolean
 }
 
-const Drawer = ({ navigateToProfile, navigateToMessages, navigateToNotifications, toggleDrawer, closeDrawer, slideAnim, drawerOpen }: DrawerProps) => {
+const Drawer = ({ navigateToAccount, navigateToMessages, navigateToNotifications, toggleDrawer, closeDrawer, slideAnim, drawerOpen }: DrawerProps) => {
     return (
         <>
             {/* Menu Icon */}
@@ -38,7 +38,7 @@ const Drawer = ({ navigateToProfile, navigateToMessages, navigateToNotifications
                     { transform: [{ translateX: slideAnim }] },
                 ]}
             >
-                <TouchableOpacity onPress={navigateToProfile}>
+                <TouchableOpacity onPress={navigateToAccount}>
                     <Text style={styles.drawerItem}>Profile</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={navigateToMessages}>

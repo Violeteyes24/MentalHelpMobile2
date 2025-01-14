@@ -1,6 +1,6 @@
 // app/(tabs)/_layout.tsx
 import { Tabs } from 'expo-router';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Animated, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import Drawer from '../../components/navbars/drawer';
@@ -13,15 +13,16 @@ export default function TabLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const slideAnim = useState(new Animated.Value(width))[0];
 
-  const toggleDrawer = () => {
+  const toggleDrawer = useCallback(() => {
+    const toValue = drawerOpen ? width : width * 0.4;
     Animated.timing(slideAnim, {
-      toValue: drawerOpen ? width : width * 0.4,
+      toValue,
       duration: 300,
       useNativeDriver: true,
     }).start(() => setDrawerOpen(!drawerOpen));
-  };
+  }, [drawerOpen, slideAnim]);
 
-  const closeDrawer = () => {
+  const closeDrawer = useCallback(() => {
     if (drawerOpen) {
       Animated.timing(slideAnim, {
         toValue: width,
@@ -29,67 +30,81 @@ export default function TabLayout() {
         useNativeDriver: true,
       }).start(() => setDrawerOpen(false));
     }
-  };
+  }, [drawerOpen, slideAnim]);
+
+  const navigate = useCallback((path: string) => {
+    router.push(path);
+    closeDrawer();
+  }, [router, closeDrawer]);
 
   return (
     <>
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarStyle: { display: drawerOpen ? 'none' : 'flex' }
+          tabBarStyle: {
+            display: drawerOpen ? 'none' : 'flex',
+            // Add additional styling if needed
+            backgroundColor: '#fff',
+            borderTopWidth: 1,
+            borderTopColor: '#e2e2e2',
+          }
         }}
       >
         <Tabs.Screen
           name="index"
           options={{
             title: 'Home',
-            href: '/(tabs)/'
+            tabBarLabel: 'Home',
+            // Add icon options if needed
           }}
         />
         <Tabs.Screen
           name="moodtracker"
           options={{
             title: 'MoodTracker',
-            href: '/(tabs)/moodtracker'
+            tabBarLabel: 'Mood',
           }}
         />
         <Tabs.Screen
           name="appointment"
           options={{
             title: 'Appointments',
-            href: '/(tabs)/appointment'
+            tabBarLabel: 'Appointments',
           }}
         />
         <Tabs.Screen
           name="chatbot"
           options={{
             title: 'Chatbot',
-            href: '/(tabs)/chatbot'
+            tabBarLabel: 'Chat',
           }}
         />
         <Tabs.Screen
           name="profile"
           options={{
             title: 'Profile',
-            href: '/(tabs)/profile'
+            tabBarLabel: 'Profile',
           }}
         />
       </Tabs>
+
       <Drawer
         toggleDrawer={toggleDrawer}
         closeDrawer={closeDrawer}
         slideAnim={slideAnim}
         drawerOpen={drawerOpen}
-        navigateToProfile={() => router.push('/(tabs)/profile')}
-        navigateToMessages={() => router.push('/(tabs)/messages')}
-        navigateToNotifications={() => router.push('/(tabs)/notifications')}
+        navigateToProfile={() => navigate('/(tabs)/profile')}
+        navigateToMessages={() => navigate('/(tabs)/messages')}
+        navigateToNotifications={() => navigate('/(tabs)/notifications')}
       />
+
       <BottomNavBar
         drawerOpen={drawerOpen}
-        navigateToHome={() => router.push('/(tabs)/')}
-        navigateToMoodTracker={() => router.push('/(tabs)/moodtracker')}
-        navigateToChatbot={() => router.push('/(tabs)/chatbot')}
-        navigateToAppointment={() => router.push('/(tabs)/appointment')}
+        navigateToHome={() => navigate('/(tabs)/')}
+        navigateToMoodTracker={() => navigate('/(tabs)/moodtracker')}
+        navigateToChatbot={() => navigate('/(tabs)/chatbot')}
+        navigateToAppointment={() => navigate('/(tabs)/appointment')}
       />
     </>
   );
