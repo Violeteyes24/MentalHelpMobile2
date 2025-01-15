@@ -16,20 +16,25 @@ AppState.addEventListener('change', (state) => {
     }
 })
 
-export default function Auth() {
+export default function Auth({ onAuthSuccess }: { onAuthSuccess: () => void }) {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
 
     async function signInWithEmail() {
-        setLoading(true)
-        const { error } = await supabase.auth.signInWithPassword({
-            email: email,
-            password: password,
-        })
+        setLoading(true);
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
 
-        if (error) Alert.alert(error.message)
-        setLoading(false)
+        if (error) {
+            Alert.alert(error.message);
+        } else if (data.session) {
+            onAuthSuccess(); // Trigger callback
+        }
+
+        setLoading(false);
     }
     async function signUpWithEmail() {
         setLoading(true)

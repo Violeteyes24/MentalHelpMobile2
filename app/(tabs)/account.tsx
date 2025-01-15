@@ -93,7 +93,7 @@ export default function Account({ session }: { session: Session }) {
                     title="Sign Out"
                     onPress={async () => {
                         await supabase.auth.signOut(); // Sign out the user
-                        router.push('/app/Auth.tsx'); // Navigate to the Auth page
+                        router.push('../auth.tsx'); // Navigate to the Auth page
                     }}
                     color="#34d399"
                 />

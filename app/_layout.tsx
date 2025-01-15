@@ -1,10 +1,23 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text } from 'react-native';
 import { Stack } from 'expo-router';
-import { AuthProvider, useAuth } from '../context/AuthContext'; // Import the AuthContext
+import { AuthProvider, useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
 function AppContent() {
   const { session, isLoading } = useAuth();
+
+  // Debugging logs for session state
+  useEffect(() => {
+    console.log('Session in AppContent:', session);
+    if (!session) {
+      console.log('No session detected.');
+    } else if (!session.user) {
+      console.log('Session exists but no user found:', session);
+    } else {
+      console.log('Valid session and user detected:', session.user);
+    }
+  }, [session]);
 
   if (isLoading) {
     return (
@@ -16,10 +29,12 @@ function AppContent() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      {session?.user ? (
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      {!session || !session.user ? (
+        // Navigate to auth if session is null, undefined, or invalid
+        <Stack.Screen name="Auth" options={{ headerShown: false }} />
       ) : (
-        <Stack.Screen name="auth" options={{ headerShown: false }} />
+        // Navigate to (tabs) if session and user are valid
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       )}
     </Stack>
   );

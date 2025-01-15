@@ -59,7 +59,7 @@ const Drawer = ({ navigateToAccount, navigateToMessages, navigateToNotifications
                             } else {
                                 console.log('Successfully logged out');
                                 // Sign out the user
-                                await router.push('/app/Auth.tsx'); 
+                                await router.push('../../app/auth.tsx'); 
                             }
                         } catch (err) {
                             console.error('Unexpected error during sign out:', err);
