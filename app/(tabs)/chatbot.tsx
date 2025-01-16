@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-
+// both questions & responses will be stored @supabase and create simple algorithm to generate questions based on user input.
 const questions = [
     "How are you feeling today?",
     "Would you like to schedule an appointment with a counselor?",
     "Would you like to update your mood tracker?",
-];
+]; 
 
 const responses: { [key: string]: string } = {
     "How are you feeling today?": "I'm here to listen! Can you share a bit more about how you're feeling?",
@@ -24,11 +24,13 @@ const Chatbot = () => {
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Mental Health Chatbot</Text>
-
+            {/* options and response should be contextually appropriate based on  */}
+            {/* 1. Mood Tracker data  */}
+            {/* 2. Demographics */}
             <ScrollView style={styles.chatLog} contentContainerStyle={styles.chatLogContent}>
                 {chatLog.map((log, index) => (
                     <View key={index} style={styles.messageContainer}>
-                        <Text style={styles.userMessage}>You: {log.question}</Text>
+                        <Text style={styles.userMessage}>You: {log.question}</Text> 
                         <Text style={styles.botMessage}>Bot: {log.response}</Text>
                     </View>
                 ))}
@@ -44,6 +46,7 @@ const Chatbot = () => {
                         <Text style={styles.questionText}>{question}</Text>
                     </TouchableOpacity>
                 ))}
+                {/* Extract frequent topic and send to database ('reports') */}
             </View>
         </View>
     );

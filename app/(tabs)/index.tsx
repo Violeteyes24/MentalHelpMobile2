@@ -42,3 +42,14 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
 });
+
+/*
+
+To do: 
+
+1. research chatbot and sentiment analysis. DEADLINE: 19
+2. implement mood tracker insert data and fetch data through mood visualization page which is to be made DEADLINE: 25
+3. debug root layout: DEADLINE: 26
+4. Unrelated: Data Mining, DEADLINE: 18
+
+*/
