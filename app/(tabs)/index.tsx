@@ -1,6 +1,9 @@
 import { View, Text, StyleSheet } from 'react-native';
-
+import { useAuth } from '../../context/AuthContext';
 export default function HomeScreen() {
+
+    const { session } = useAuth();
+    console.log(session);
     return (
         <View style={styles.container}>
             <Text style={styles.title}>

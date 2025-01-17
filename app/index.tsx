@@ -3,6 +3,7 @@ import React, { useState } from 'react'
 import { Alert, StyleSheet, View, AppState, Text } from 'react-native'
 import { supabase } from '../lib/supabase'
 import { Button, Input } from '@rneui/themed'
+import { useRouter } from 'expo-router'
 
 // Tells Supabase Auth to continuously refresh the session automatically if
 // the app is in the foreground. When this is added, you will continue to receive
@@ -16,23 +17,26 @@ AppState.addEventListener('change', (state) => {
     }
 })
 
-export default function Auth({ onAuthSuccess }: { onAuthSuccess: () => void }) {
+export default function Auth() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
+    const router = useRouter();
 
     async function signInWithEmail() {
         setLoading(true);
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
-        });
+        }); 
 
+        if (data) {
+            console.log(data)
+            router.push('/(tabs)')    
+        }
         if (error) {
             Alert.alert(error.message);
-        } else if (data.session) {
-            onAuthSuccess(); // Trigger callback
-        }
+        } 
 
         setLoading(false);
     }

@@ -10,9 +10,9 @@ function AppContent() {
   // Debugging logs for session state
   useEffect(() => {
     console.log('Session in AppContent:', session);
-    if (!session) {
+    if (!session) { // no session
       console.log('No session detected.');
-    } else if (!session.user) {
+    } else if (!session.user) { // not user session
       console.log('Session exists but no user found:', session);
     } else {
       console.log('Valid session and user detected:', session.user);
@@ -31,7 +31,7 @@ function AppContent() {
     <Stack screenOptions={{ headerShown: false }}>
       {!session || !session.user ? (
         // Navigate to auth if session is null, undefined, or invalid
-        <Stack.Screen name="Auth" options={{ headerShown: false }} />
+        <Stack.Screen name="index" options={{ headerShown: false }} />
       ) : (
         // Navigate to (tabs) if session and user are valid
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
