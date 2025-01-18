@@ -31,7 +31,7 @@ export default function Auth() {
         }); 
 
         if (data) {
-            console.log(data)
+            // console.log(data)
             router.push('/(tabs)')    
         }
         if (error) {
