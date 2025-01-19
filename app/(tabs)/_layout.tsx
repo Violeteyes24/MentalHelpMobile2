@@ -43,48 +43,48 @@ export default function TabLayout() {
         screenOptions={{
           headerShown: false,
           tabBarStyle: {
-            display: drawerOpen ? 'none' : 'flex',
+            display: drawerOpen ? "none" : "flex",
             // Add additional styling if needed
-            backgroundColor: '#fff',
+            backgroundColor: "#fff",
             borderTopWidth: 1,
-            borderTopColor: '#e2e2e2',
-          }
+            borderTopColor: "#e2e2e2",
+          },
         }}
       >
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Home',
-            tabBarLabel: 'Home',
+            title: "Home",
+            tabBarLabel: "Home",
             // Add icon options if needed
           }}
         />
         <Tabs.Screen
           name="moodtracker"
           options={{
-            title: 'MoodTracker',
-            tabBarLabel: 'Mood',
+            title: "MoodTracker",
+            tabBarLabel: "Mood",
           }}
         />
         <Tabs.Screen
-          name="appointment"
+          name="counselorList"
           options={{
-            title: 'Appointments',
-            tabBarLabel: 'Appointments',
+            title: "counselorList",
+            tabBarLabel: "counselorList",
           }}
         />
         <Tabs.Screen
           name="chatbot"
           options={{
-            title: 'Chatbot',
-            tabBarLabel: 'Chat',
+            title: "Chatbot",
+            tabBarLabel: "Chat",
           }}
         />
         <Tabs.Screen
           name="account"
           options={{
-            title: 'account',
-            tabBarLabel: 'account',
+            title: "account",
+            tabBarLabel: "account",
           }}
         />
       </Tabs>
@@ -94,17 +94,19 @@ export default function TabLayout() {
         closeDrawer={closeDrawer}
         slideAnim={slideAnim}
         drawerOpen={drawerOpen}
-        navigateToAccount={() => navigate('/(tabs)/account')}
-        navigateToMessages={() => navigate('/(tabs)/messages')}
-        navigateToNotifications={() => navigate('/(tabs)/notifications')}
+        navigateToAccount={() => navigate("/(tabs)/account")}
+        navigateToMessages={() => navigate("/(tabs)/messages")}
+        navigateToNotifications={() => navigate("/(tabs)/notifications")}
+        navigateToLogIn={() => navigate("/app/index.tsx")}
+        // to do, log out.
       />
 
       <BottomNavBar
         drawerOpen={drawerOpen}
-        navigateToHome={() => navigate('/(tabs)/')}
-        navigateToMoodTracker={() => navigate('/(tabs)/moodtracker')}
-        navigateToChatbot={() => navigate('/(tabs)/chatbot')}
-        navigateToAppointment={() => navigate('/(tabs)/appointment')}
+        navigateToHome={() => navigate("/(tabs)/")}
+        navigateToMoodTracker={() => navigate("/(tabs)/moodtracker")}
+        navigateToChatbot={() => navigate("/(tabs)/chatbot")}
+        navigateToAppointment={() => navigate("/(tabs)/counselorList")}
       />
     </>
   );

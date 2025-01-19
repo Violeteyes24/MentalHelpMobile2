@@ -5,73 +5,82 @@ import { supabase } from '../../lib/supabase';
 import { useRouter } from 'expo-router';
 
 interface DrawerProps {
-    navigateToAccount: () => void; // Explicitly type as a function that returns void
-    navigateToMessages: () => void;
-    navigateToNotifications: () => void;
-    toggleDrawer: () => void;
-    closeDrawer: () => void;
-    slideAnim: Animated.Value; // Assuming this is an Animated.Value from react-native
-    drawerOpen: boolean; // Explicitly type as a boolean
+  navigateToAccount: () => void; // Explicitly type as a function that returns void
+  navigateToMessages: () => void;
+  navigateToNotifications: () => void;
+  navigateToLogIn: () => void;
+  toggleDrawer: () => void;
+  closeDrawer: () => void;
+  slideAnim: Animated.Value; // Assuming this is an Animated.Value from react-native
+  drawerOpen: boolean; // Explicitly type as a boolean
 }
 
-const Drawer = ({ navigateToAccount, navigateToMessages, navigateToNotifications, toggleDrawer, closeDrawer, slideAnim, drawerOpen }: DrawerProps) => {
-    const router = useRouter()
-    return (
-        <>
-            {/* Menu Icon */}
-            <View style={{ position: 'absolute', top: '5%', right: '5%' }}>
-                <Icon
-                    name="menu"
-                    type="feather"
-                    size={28}
-                    color="#000"
-                    onPress={toggleDrawer}
-                />
-            </View>
+const Drawer = ({
+  navigateToAccount,
+  navigateToMessages,
+  navigateToNotifications,
+  navigateToLogIn,
+  toggleDrawer,
+  closeDrawer,
+  slideAnim,
+  drawerOpen,
+}: DrawerProps) => {
+  const router = useRouter();
+  return (
+    <>
+      {/* Menu Icon */}
+      <View style={{ position: "absolute", top: "5%", right: "5%" }}>
+        <Icon
+          name="menu"
+          type="feather"
+          size={28}
+          color="#000"
+          onPress={toggleDrawer}
+        />
+      </View>
 
-            {/* Overlay */}
-            {drawerOpen && (
-                <Pressable style={styles.overlay} onPress={closeDrawer}></Pressable>
-            )}
+      {/* Overlay */}
+      {drawerOpen && (
+        <Pressable style={styles.overlay} onPress={closeDrawer}></Pressable>
+      )}
 
-            {/* Sliding Drawer */}
-            <Animated.View
-                style={[
-                    styles.drawer,
-                    { transform: [{ translateX: slideAnim }] },
-                ]}
-            >
-                <TouchableOpacity onPress={navigateToAccount}>
-                    <Text style={styles.drawerItem}>Profile</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={navigateToMessages}>
-                    <Text style={styles.drawerItem}>Messages</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={navigateToNotifications}>
-                    <Text style={styles.drawerItem}>Notifications</Text>
-                </TouchableOpacity>
-                <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-                    <TouchableOpacity onPress={async () => {
-                        try {
-                            const { error } = await supabase.auth.signOut();
-                            if (error) {
-                                console.error('Error signing out:', error.message);
-                            } else {
-                                console.log('Successfully logged out');
-                                // Sign out the user
-                                await router.push('../../app/auth.tsx'); 
-                            }
-                        } catch (err) {
-                            console.error('Unexpected error during sign out:', err);
-                        }
-                    }}>
-                        <Text style={[styles.drawerItem, styles.logout]}>Logout</Text>
-                    </TouchableOpacity>
-
-                </View>
-            </Animated.View>
-        </>
-    );
+      {/* Sliding Drawer */}
+      <Animated.View
+        style={[styles.drawer, { transform: [{ translateX: slideAnim }] }]}
+      >
+        <TouchableOpacity onPress={navigateToAccount}>
+          <Text style={styles.drawerItem}>Profile</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={navigateToMessages}>
+          <Text style={styles.drawerItem}>Messages</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={navigateToNotifications}>
+          <Text style={styles.drawerItem}>Notifications</Text>
+        </TouchableOpacity>
+        <View style={{ flex: 1, justifyContent: "flex-end" }}>
+          <TouchableOpacity
+            onPress={async () => {
+              try {
+                const { error } = await supabase.auth.signOut();
+                if (error) {
+                  console.error("Error signing out:", error.message);
+                } else {
+                  console.log("Successfully logged out");
+                  // Sign out the user
+                  navigateToLogIn;
+                  // to do, log out.
+                }
+              } catch (err) {
+                console.error("Unexpected error during sign out:", err);
+              }
+            }}
+          >
+            <Text style={[styles.drawerItem, styles.logout]}>Logout</Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+    </>
+  );
 };
 
 const styles = StyleSheet.create({

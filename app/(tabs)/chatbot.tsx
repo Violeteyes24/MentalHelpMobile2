@@ -55,63 +55,63 @@ const Chatbot = () => {
 export default Chatbot;
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 20,
-        backgroundColor: '#F5F5F5',
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        textAlign: 'center',
-        marginBottom: 20,
-    },
-    chatLog: {
-        flex: 1,
-        marginBottom: 20,
-    },
-    chatLogContent: {
-        paddingVertical: 10,
-    },
-    messageContainer: {
-        marginBottom: 15,
-    },
-    userMessage: {
-        fontSize: 16,
-        color: '#333',
-        fontWeight: 'bold',
-        alignSelf: 'flex-start',
-        marginBottom: 4,
-    },
-    botMessage: {
-        fontSize: 16,
-        color: '#333',
-        backgroundColor: '#E8E8E8',
-        padding: 10,
-        borderRadius: 10,
-        alignSelf: 'flex-start',
-    },
-    buttonContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-around',
-    },
-    questionButton: {
-        backgroundColor: '#4CAF50',
-        padding: 12,
-        borderRadius: 8,
-        margin: 4,
-        width: '30%',
-        // Use flexbox to make the buttons horizontal
-        display: 'flex',
-        flexDirection: 'row',
-        justifyContent: 'space-between', // Space buttons evenly
-        alignItems: 'center', // Center text vertically
-        marginBottom: '6%'
-    },
-    questionText: {
-        color: 'white',
-        fontWeight: '600',
-        textAlign: 'center',
-    },
+  container: {
+    flex: 1,
+    padding: "10%",
+    backgroundColor: "#F5F5F5",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  chatLog: {
+    flex: 1,
+    marginBottom: 20,
+  },
+  chatLogContent: {
+    paddingVertical: 10,
+  },
+  messageContainer: {
+    marginBottom: 15,
+  },
+  userMessage: {
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "bold",
+    alignSelf: "flex-start",
+    marginBottom: 4,
+  },
+  botMessage: {
+    fontSize: 16,
+    color: "#333",
+    backgroundColor: "#E8E8E8",
+    padding: 10,
+    borderRadius: 10,
+    alignSelf: "flex-start",
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-around",
+  },
+  questionButton: {
+    backgroundColor: "#6ee7b7",
+    padding: 12,
+    borderRadius: 8,
+    margin: 4,
+    width: "30%",
+    // Use flexbox to make the buttons horizontal
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "space-between", // Space buttons evenly
+    alignItems: "center", // Center text vertically
+    marginBottom: "1%",
+  },
+  questionText: {
+    color: "white",
+    fontWeight: "600",
+    textAlign: "center",
+  },
 });
