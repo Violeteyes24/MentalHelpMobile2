@@ -31,7 +31,7 @@ const BottomNavBar = ({ navigateToHome, navigateToMoodTracker, navigateToChatbot
             </TouchableOpacity>
             <TouchableOpacity style={styles.navItem} onPress={navigateToAppointment}>
                 <Icon name="calendar" type="font-awesome" color="#fff" size={24} />
-                <Text style={styles.navText}>Appointments</Text>
+                <Text style={styles.navText}>Appointment</Text>
             </TouchableOpacity>
         </View>
     );

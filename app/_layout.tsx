@@ -29,13 +29,12 @@ function AppContent() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      {!session || !session.user ? (
-        // Navigate to auth if session is null, undefined, or invalid
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-      ) : (
-        // Navigate to (tabs) if session and user are valid
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      )}
+      <Stack.Screen name="auth" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="(tabs)"
+        options={{ headerShown: false }}
+        redirect={!session || !session.user}
+      />
     </Stack>
   );
 }

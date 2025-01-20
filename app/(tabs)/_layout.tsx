@@ -87,6 +87,7 @@ export default function TabLayout() {
             tabBarLabel: "account",
           }}
         />
+        {/* <Tabs.Screen name="/app/index" /> */}
       </Tabs>
 
       <Drawer
@@ -97,7 +98,7 @@ export default function TabLayout() {
         navigateToAccount={() => navigate("/(tabs)/account")}
         navigateToMessages={() => navigate("/(tabs)/messages")}
         navigateToNotifications={() => navigate("/(tabs)/notifications")}
-        navigateToLogIn={() => navigate("/app/index.tsx")}
+        navigateToLogIn={() => navigate("/")}
         // to do, log out.
       />
 

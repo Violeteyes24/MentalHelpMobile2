@@ -26,6 +26,10 @@ const MessageUI: React.FC = () => {
 
     return (
         <View style={styles.container}>
+            <Text style={styles.title}>
+
+                Messages
+            </Text>
             <FlatList
                 data={messages}
                 renderItem={renderItem}
@@ -48,66 +52,74 @@ const MessageUI: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        paddingTop: 20,
-        backgroundColor: '#f8f8f8',
-    },
-    messageList: {
-        paddingBottom: 20,
-    },
-    messageContainer: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        marginBottom: 10,
-        marginHorizontal: 10,
-    },
-    selfMessage: {
-        justifyContent: 'flex-end',
-        alignSelf: 'flex-end',
-    },
-    otherMessage: {
-        justifyContent: 'flex-start',
-        alignSelf: 'flex-start',
-    },
-    avatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        marginRight: 10,
-    },
-    messageText: {
-        maxWidth: '80%',
-        padding: 10,
-        borderRadius: 20,
-        backgroundColor: '#d1d1d1',
-    },
-    inputContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 10,
-        backgroundColor: '#ffffff',
-        borderTopWidth: 1,
-        borderTopColor: '#e1e1e1',
-    },
-    textInput: {
-        flex: 1,
-        height: 40,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#e1e1e1',
-        paddingHorizontal: 10,
-    },
-    sendButton: {
-        marginLeft: 10,
-        padding: 10,
-        backgroundColor: '#007bff',
-        borderRadius: 20,
-    },
-    sendText: {
-        color: '#ffffff',
-        fontWeight: 'bold',
-    },
+  container: {
+    flex: 1,
+    paddingTop: 20,
+    backgroundColor: "#f8f8f8",
+    marginBottom: "5%",
+  },
+  messageList: {
+    paddingBottom: 20,
+  },
+  messageContainer: {
+    flexDirection: "column",
+    alignItems: "flex-end",
+    marginBottom: 10,
+    marginHorizontal: 10,
+  },
+  selfMessage: {
+    justifyContent: "flex-end",
+    alignSelf: "flex-end",
+  },
+  otherMessage: {
+    justifyContent: "flex-start",
+    alignSelf: "flex-start",
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  messageText: {
+    maxWidth: "80%",
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: "#d1d1d1",
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    backgroundColor: "#ffffff",
+    borderTopWidth: 1,
+    borderTopColor: "#e1e1e1",
+  },
+  textInput: {
+    flex: 1,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#e1e1e1",
+    paddingHorizontal: 10,
+  },
+  sendButton: {
+    marginLeft: 10,
+    padding: 10,
+    backgroundColor: "#6ee7b7",
+    borderRadius: 20,
+  },
+  sendText: {
+    color: "#ffffff",
+    fontWeight: "bold",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#1f2937",
+    textAlign: "center",
+    marginTop: '5%'
+  },
 });
 
 export default MessageUI;

@@ -18,65 +18,74 @@ const messages: Message[] = [
 const NotificationUI: React.FC = () => {
     const renderItem = ({ item }: { item: Message }) => {
         return (
-            <View style={styles.messageContainer}>
+            <TouchableOpacity style={styles.messageContainer}>
                 <View style={styles.messageContent}>
                     <Text style={styles.sender}>{item.sender}</Text>
                     <Text style={styles.messageText}>{item.text}</Text>
                 </View>
                 <Text style={styles.time}>{item.time}</Text>
-            </View>
+            </TouchableOpacity>
         );
     };
 
     return (
-        <View style={styles.container}>
-            <FlatList
-                data={messages}
-                renderItem={renderItem}
-                keyExtractor={item => item.id}
-                contentContainerStyle={styles.messageList}
-            />
-        </View>
+      <View style={styles.container}>
+        <Text style={styles.title}>Notifications</Text>
+        <FlatList
+          data={messages}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.messageList}
+        />
+      </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#f5f5f5',
-        paddingTop: 20,
-    },
-    messageList: {
-        paddingBottom: 20,
-    },
-    messageContainer: {
-        flexDirection: 'row',
-        padding: 10,
-        backgroundColor: '#ffffff',
-        marginBottom: 10,
-        borderRadius: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-    },
-    messageContent: {
-        flex: 1,
-    },
-    sender: {
-        fontWeight: 'bold',
-        fontSize: 14,
-        marginBottom: 5,
-    },
-    messageText: {
-        fontSize: 16,
-        color: '#333',
-    },
-    time: {
-        fontSize: 12,
-        color: '#aaa',
-        marginTop: 5,
-    },
+  container: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+    paddingTop: 20,
+  },
+  messageList: {
+    paddingBottom: 20,
+  },
+  messageContainer: {
+    flexDirection: "row",
+    padding: 10,
+    backgroundColor: "#ffffff",
+    marginBottom: 10,
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  messageContent: {
+    flex: 1,
+  },
+  sender: {
+    fontWeight: "bold",
+    fontSize: 14,
+    marginBottom: 5,
+  },
+  messageText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  time: {
+    fontSize: 12,
+    color: "#aaa",
+    marginTop: 5,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#1f2937",
+    textAlign: "center",
+    marginTop: '5%',
+    marginBottom: '5%'
+  },
 });
 
 export default NotificationUI;

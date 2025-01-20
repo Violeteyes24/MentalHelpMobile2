@@ -114,15 +114,4 @@ const styles = StyleSheet.create({
   unavailable: { backgroundColor: "#ffcdd2" },
 });
 
-/*
-To do: 
-- resolve error
-- counselor's list
-- availability of counselors
-- once availability is clicked, display details 
-- contains book appointment
-- interface of the upcoming app ointment and a cancel / reschedule
-- validations for appointment logic
 
-- user_id = counselor_id = auth.id (default supabase)
-*/
