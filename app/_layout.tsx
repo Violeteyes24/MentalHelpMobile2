@@ -29,12 +29,12 @@ function AppContent() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="auth" options={{ headerShown: false }} />
       <Stack.Screen
-        name="(tabs)"
+        name="index"
         options={{ headerShown: false }}
         redirect={!session || !session.user}
       />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>
   );
 }

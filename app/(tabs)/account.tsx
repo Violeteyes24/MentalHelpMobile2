@@ -4,9 +4,12 @@ import { StyleSheet, View, Alert, Text } from 'react-native'
 import { Button, Input } from '@rneui/themed'
 import { Session } from '@supabase/supabase-js'
 import { useRouter } from 'expo-router'
+import { useAuth } from '../../context/AuthContext'
 import { Link } from 'expo-router'
 
-export default function Account({ session }: { session: Session }) {
+export default function Account() {
+
+    const { session } = useAuth();
     const [loading, setLoading] = useState(true)
     const [name, setName] = useState('')
     const router = useRouter()
@@ -14,25 +17,29 @@ export default function Account({ session }: { session: Session }) {
 
     useEffect(() => {
         if (session) getProfile()
+          console.log(session);
     }, [session])
 
     async function getProfile() {
         try {
-            setLoading(true)
-            if (!session?.user) throw new Error('No user on the session!')
+          setLoading(true);
 
-            const { data, error, status } = await supabase
-                .from('users')
-                .select(`name`)
-                .eq('user_id', session?.user.id)
-                .single()
-            if (error && status !== 406) {
-                throw error
-            }
+          if (!session?.user) throw new Error("No user on the session!");
 
-            if (data) {
-                setName(data.name)
-            }
+          const { data, error, status } = await supabase
+            .from("users")
+            .select(`name`)
+            .eq("user_id", session?.user.id)
+            .single();
+          
+          if (error && status !== 406) {
+            throw error;
+          }
+
+          if (data) {
+            setName(data.name);
+            console.log(data); // not reading the data
+          }
         } catch (error) {
             if (error instanceof Error) {
                 Alert.alert(error.message)
@@ -96,7 +103,7 @@ export default function Account({ session }: { session: Session }) {
           />
         </View>
 
-        <View style={styles.verticallySpaced}>
+        {/* <View style={styles.verticallySpaced}>
           <Link href="/app">
             <Button
               title="Sign Out"
@@ -107,7 +114,7 @@ export default function Account({ session }: { session: Session }) {
               color="#34d399"
             />
           </Link>
-        </View>
+        </View> */}
 
         <View style={styles.verticallySpaced}>
                 <Button title="Home" onPress={() => navigateToHome } color='#34d399' />

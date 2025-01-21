@@ -95,7 +95,7 @@ export default function CounselorList({ navigation }: any) {
   if (loading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#007BFF" />
+        <ActivityIndicator size="large" color="#6ee7b7" />
       </View>
     );
   }
@@ -111,6 +111,9 @@ export default function CounselorList({ navigation }: any) {
         renderItem={renderItem} // Renders each counselor row
         contentContainerStyle={styles.list}
       />
+      <TouchableOpacity onPress={() => router.push('/app/(tabs)/availability') }>
+        <Text> Test button go to availability </Text> 
+      </TouchableOpacity>
     </View>
   );
 }
