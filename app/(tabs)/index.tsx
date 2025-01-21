@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 export default function HomeScreen() {
 
     const { session } = useAuth();
-    // console.log(session);
+    console.log(session);
     return (
         <View style={styles.container}>
             <Text style={styles.title}>

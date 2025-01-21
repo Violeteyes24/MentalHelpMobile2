@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { StyleSheet, View, Alert, Text } from 'react-native'
+import { StyleSheet, View, Alert, Text, ScrollView } from 'react-native'
 import { Button, Input } from '@rneui/themed'
-import { Session } from '@supabase/supabase-js'
 import { useRouter } from 'expo-router'
 import { useAuth } from '../../context/AuthContext'
 import { Link } from 'expo-router'
@@ -12,6 +11,17 @@ export default function Account() {
     const { session } = useAuth();
     const [loading, setLoading] = useState(true)
     const [name, setName] = useState('')
+    const [username, setUserName] = useState('');
+    const [address, setAddress] = useState("");
+    const [contact_number, setContactNumber ] = useState('');
+    const [birthday, setBirthday] = useState('');
+    const [gender, setGender] = useState('');
+    const [department, setDepartment] = useState('');
+    const [program, setProgram] = useState('');
+    const [short_biography, setShortBiography] = useState('');
+    const [credentials, setCredentials] = useState('');
+    const [program_year_level, setProgramYearLevel] = useState('');
+
     const router = useRouter()
     const navigateToHome = () => router.push('/(tabs)/');
 
@@ -28,7 +38,7 @@ export default function Account() {
 
           const { data, error, status } = await supabase
             .from("users")
-            .select(`name`)
+            .select('name, username, address, contact_number, birthday, gender, department, program, program_year_level, short_biography, credentials')
             .eq("user_id", session?.user.id)
             .single();
           
@@ -38,6 +48,16 @@ export default function Account() {
 
           if (data) {
             setName(data.name);
+            setUserName(data.username);
+            setAddress(data.address);
+            setContactNumber(data.contact_number);
+            setBirthday(data.birthday);
+            setGender(data.gender);
+            setDepartment(data.department);
+            setProgram(data.program);
+            setProgramYearLevel(data.program_year_level);
+            setShortBiography(data.short_biography);
+            setCredentials(data.credentials);
             console.log(data); // not reading the data
           }
         } catch (error) {
@@ -51,17 +71,35 @@ export default function Account() {
 
     async function updateProfile({
         name,
-
+        username,
+        address,
+        contact_number,
+        birthday,
+        gender,
+        department,
+        program,
+        program_year_level,
+        short_biography,
+        credentials
     }: {
         name: string
+        username: string
+        address: string
+        contact_number: string
+        birthday: string
+        gender: string
+        department: string
+        program: string
+        program_year_level: string
+        short_biography: string
+        credentials: string
     }) {
         try {
             setLoading(true)
             if (!session?.user) throw new Error('No user on the session!')
-
             const updates = {
                 id: session?.user.id,
-                name,
+                name, username, address, contact_number, birthday, gender, department, program, program_year_level,
                 updated_at: new Date(),
             }
 
@@ -80,7 +118,7 @@ export default function Account() {
     }
 
     return (
-      <View style={styles.container}>
+      <ScrollView style={styles.container}>
         <View>
           <Text style={styles.title}>Profile</Text>
         </View>
@@ -94,10 +132,94 @@ export default function Account() {
             onChangeText={(text) => setName(text)}
           />
         </View>
+        <View style={styles.verticallySpaced}>
+          <Input
+            label="Username"
+            value={username || ""}
+            onChangeText={(text) => setUserName(text)}
+          />
+        </View>
+        <View style={styles.verticallySpaced}>
+          <Input
+            label="Address"
+            value={address || ""}
+            onChangeText={(text) => setAddress(text)}
+          />
+        </View>
+        <View>
+          <Input
+            label="Contact Number"
+            value={contact_number || ""}
+            onChangeText={(text) => setContactNumber(text)}
+          />
+        </View>
+        <View>
+          <Input
+            label="Birthday"
+            value={birthday || ""}
+            onChangeText={(text) => setBirthday(text)}
+          />
+        </View>
+        <View>
+          <Input
+            label="Gender"
+            value={gender || ""}
+            onChangeText={(text) => setGender(text)}
+          />
+        </View>
+        <View>
+          <Input
+            label="Department"
+            value={department || ""}
+            onChangeText={(text) => setDepartment(text)}
+          />
+        </View>
+        <View>
+          <Input
+            label="Program"
+            value={program || ""}
+            onChangeText={(text) => setProgram(text)}
+          />
+        </View>
+        <View>
+          <Input
+            label="Program Year Level"
+            value={program_year_level || ""}
+            onChangeText={(text) => setProgramYearLevel(text)}
+          />
+        </View>
+        <View>
+          <Input
+            label="Short Biography"
+            value={short_biography || ""}
+            onChangeText={(text) => setShortBiography(text)}
+          />
+        </View>
+        <View>
+          <Input
+            label="Credentials"
+            value={credentials || ""}
+            onChangeText={(text) => setCredentials(text)}
+          />
+        </View>
         <View style={[styles.verticallySpaced, styles.mt20]}>
           <Button
             title={loading ? "Loading ..." : "Update"}
-            onPress={() => updateProfile({ name })}
+            onPress={() =>
+              updateProfile({
+                name,
+                username,
+                address,
+                contact_number,
+                birthday,
+                gender,
+                department,
+                program,
+                program_year_level,
+                short_biography,
+                credentials,
+              })
+            }
             disabled={loading}
             color="#34d399"
           />
@@ -116,10 +238,10 @@ export default function Account() {
           </Link>
         </View> */}
 
-        <View style={styles.verticallySpaced}>
-                <Button title="Home" onPress={() => navigateToHome } color='#34d399' />
-            </View>
-      </View>
+        <View style={[styles.verticallySpaced, styles.mb]}>
+          <Button title="Home" onPress={() => navigateToHome} color="#34d399" />
+        </View>
+      </ScrollView>
     );
 }
 
@@ -135,6 +257,9 @@ const styles = StyleSheet.create({
   },
   mt20: {
     marginTop: 20,
+  },
+  mb: {
+    marginBottom: 40
   },
   title: {
     fontSize: 24,
