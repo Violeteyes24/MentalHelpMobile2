@@ -46,21 +46,19 @@ export default function AvailabilityCalendar() {
   }, []);
 
   async function fetchAvailability() {
-    // const { data, error } = await supabase
 
     let { data: availability_schedules, error } = await supabase.from(
       "availability_schedules"
     ).select(`
     *, users(*)
   `);
+  // dynamic, based on selected counselor
 
   if(availability_schedules){
     setAvailability(availability_schedules); 
   }
-
-    // .eq('counselor_id', counselorId)
-    // .eq('date', selectedDate); // so this whole page won't work since
     console.log(availability_schedules);
+    
     if (error) console.error(error);
     else setAvailability([]);
   }

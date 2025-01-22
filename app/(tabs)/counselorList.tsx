@@ -111,7 +111,11 @@ export default function CounselorList({ navigation }: any) {
         renderItem={renderItem} // Renders each counselor row
         contentContainerStyle={styles.list}
       />
-      <TouchableOpacity onPress={() => router.push('/app/(tabs)/availability') }>
+      <TouchableOpacity 
+        onPress={() => { 
+          router.push('/app/(tabs)/availability')
+          console.log('test availability button is pressed')
+        }}>    
         <Text> Test button go to availability </Text> 
       </TouchableOpacity>
     </View>

@@ -27,16 +27,16 @@ function AppContent() {
     );
   }
 
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen
-        name="index"
-        options={{ headerShown: false }}
-        redirect={!session || !session.user}
-      />
+return (
+  <Stack screenOptions={{ headerShown: false }}>
+    {!session || !session.user ? (
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+    ) : (
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-    </Stack>
-  );
+    )}
+  </Stack>
+);
+
 }
 
 export default function App() {

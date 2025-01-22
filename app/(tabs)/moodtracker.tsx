@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, Button, SafeAreaView, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Button, SafeAreaView, Alert, StyleSheet } from 'react-native';
 import Slider from '@react-native-community/slider';
 import PieChart from 'react-native-pie-chart';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext'
 
 const EmotionAnalysis: React.FC = () => {
     const [emotions, setEmotions] = useState<{ [key: string]: number }>({
@@ -36,6 +38,45 @@ const EmotionAnalysis: React.FC = () => {
         color: emotionColors[emotion],
     }));
 
+    const [loading, setLoading] = useState(true);
+    const { session } = useAuth();
+
+    useEffect(() => {
+        console.log("Session in Mood Tracker UseEffect", session);
+        
+    }, [])
+
+    async function insertMoodTrackerData() {
+    try {
+        setLoading(true);
+
+        const insertData = Object.entries(emotions).map(
+        ([mood_type, intensity]) => ({
+            mood_type,
+            intensity,
+            user_id: session?.user.id,
+        })
+        );
+
+        const { data, error } = await supabase
+        .from("mood_tracker")
+        .insert(insertData);
+
+        if (error) {
+        console.error("Insert Error:", error);
+        throw error;
+        }
+
+        console.log("Insert Success:", data);
+    } catch (error) {
+        if (error instanceof Error) {
+        Alert.alert("Error", error.message);
+        }
+    } finally {
+        setLoading(false);
+    }
+    }
+
     return (
         <SafeAreaView style={{ flex: 1, padding: 16 }}>
             <Text style={{ fontSize: 24, fontWeight: 'bold', textAlign: 'center' }}>Mood Tracker</Text>
@@ -50,7 +91,7 @@ const EmotionAnalysis: React.FC = () => {
                     <Slider
                         style={{ width: 275 }}
                         minimumValue={0}
-                        maximumValue={100}
+                        maximumValue={10}
                         value={emotions[emotion]}
                         onValueChange={(value) => handleSliderChange(emotion, value)}
                         thumbTintColor={emotionColors[emotion]}
@@ -63,7 +104,7 @@ const EmotionAnalysis: React.FC = () => {
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                 <PieChart widthAndHeight={widthAndHeight} series={series} />
                 <View style={{ marginTop: '5%', alignItems: 'center' }}>
-                    <Button title="See Results" onPress={() => { }} color="#34d399" />
+                    <Button title="See Results" onPress={() => insertMoodTrackerData() } color="#34d399" />
                 </View>
             </View>
 

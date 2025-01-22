@@ -67,7 +67,7 @@ const Drawer = ({
                 } else {
                   console.log("Successfully logged out");
                   // Sign out the user
-                  navigateToLogIn;
+                  navigateToLogIn();
                   // to do, log out.
                 }
               } catch (err) {
