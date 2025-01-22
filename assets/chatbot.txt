@@ -1,0 +1,139 @@
+mood_scores = {
+    "Happy": 4,
+    "Afraid": 5, 
+    "Angry": 6,
+    "Stressed": 2,
+    "Confused": 1,
+    "Disappointed": 6
+}
+
+
+mood_entries = ["Happy", "Stressed", "Angry", "Confused", "Happy"]
+
+mood_data = [
+    {"mood": "Happy", "date": "2024-11-20"}, 
+    {"mood": "Stressed", "date": "2024-11-21"}, 
+    {"mood": "Angry", "date": "2024-11-22"}, 
+    {"mood": "Confused", "date": "2024-11-23"}, 
+    {"mood": "Happy", "date": "2024-11-24"}
+]
+
+
+def calculate_mood_score(mood_entries, mood_scores):
+  """Calculates the average mood score based on entries.
+
+  Args:
+    mood_entries: A list of mood strings.
+    mood_scores: A dictionary mapping mood strings to their scores.
+
+  Returns:
+    The average mood score.
+  """
+  daily_scores = [mood_scores[mood] for mood in mood_entries]
+  average_score = sum(daily_scores) / len(daily_scores)
+  return average_score
+
+# Example usage:
+average_score = calculate_mood_score(mood_entries, mood_scores)
+print("Average Mood Score:", average_score)
+
+def normalize_score(score, max_score=10, new_max=5):
+  """Normalizes a score to a new range.
+
+  Args:
+    score: The original score.
+    max_score: The original maximum score.
+    new_max: The desired maximum score.
+
+  Returns:
+    The normalized score.
+  """
+  return (score / max_score) * new_max
+
+normalized_score = normalize_score(average_score)
+print("Normalized Mood Score:", normalized_score)
+
+
+### **Week 1: Foundation & Backend Integration**
+**Day 1-2: Plan the Flow**
+- Finalize conversation flow (predefined paths, clickable options, dynamic responses).
+- List user scenarios and edge cases (e.g., invalid inputs, conversation resets).
+
+**Day 3-4: Backend API**
+- Create Supabase API integration for:
+  - Fetching user data (e.g., demographics, mood history).
+  - Saving chat logs and selected options.
+- Implement an endpoint to serve:
+  - Predefined bot responses.
+  - Dynamic personalized responses using Supabase queries.
+
+**Day 5-7: Backend Testing**
+- Test Supabase integration and API endpoints using Postman.
+- Add error handling for database queries and ensure API returns appropriate responses for all scenarios.
+
+---
+
+### **Week 2: Frontend Development**
+**Day 1-3: Build Chatbot UI**
+- Create chatbot screen in React Native.
+- Design user-friendly UI with:
+  - Chat bubbles for bot and user messages.
+  - Clickable options for user responses.
+  - Smooth transitions between messages.
+
+**Day 4-5: Integrate Backend**
+- Connect the frontend to Supabase API.
+- Implement:
+  - Fetching initial bot message and options.
+  - Sending user-selected options to the backend and displaying responses.
+- Handle loading states (e.g., spinner when waiting for backend response).
+
+**Day 6-7: Test Chatbot Flow**
+- Ensure conversation flows smoothly.
+- Verify Supabase integration works with real data.
+- Test on physical devices for performance issues.
+
+---
+
+### **Week 3: Personalization**
+**Day 1-3: Enhance Personalization**
+- Use Supabase data (e.g., user demographics, mood tracker history) to dynamically generate bot responses.
+- Add logic to fetch and analyze:
+  - Frequent topics (optional: use Supabase functions or external NLP libraries).
+  - Mood trends over time.
+
+**Day 4-5: Mood and Emotion Feedback**
+- Add emotional tone to bot responses based on:
+  - Mood tracker data (e.g., encouraging messages for stressed users).
+  - Past conversation trends.
+
+**Day 6-7: Test Personalization**
+- Simulate multiple user scenarios to verify responses feel tailored.
+- Get feedback from peers or testers on the emotional tone.
+
+---
+
+### **Week 4: Final Touches & Deployment**
+**Day 1-3: UI/UX Improvements**
+- Add animations (e.g., typing indicator for the bot).
+- Refine chatbot screen styling for consistency.
+- Ensure accessibility (font sizes, color contrast).
+
+**Day 4-5: Deployment**
+- Deploy backend (Supabase APIs).
+- Build and deploy the React Native app using Expo or EAS.
+
+**Day 6-7: Testing & Feedback**
+- Conduct a final round of end-to-end testing.
+- Gather feedback from users or team members.
+- Fix bugs and polish the app.
+
+---
+
+### Optional Tasks for the Future
+1. **Add Analytics:**
+   - Track user interactions and conversation paths using Supabase or third-party tools like Mixpanel or Firebase Analytics.
+2. **Multilingual Support:**
+   - Use a translation library or API to support multiple languages.
+3. **Offline Support:**
+   - Cache previous conversation data locally using libraries like `AsyncStorage`.
