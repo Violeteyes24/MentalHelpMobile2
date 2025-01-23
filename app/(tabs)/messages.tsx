@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Image } from 'react-native';
-
+import { useRouter } from 'expo-router';
 interface Message {
     id: string;
     text: string;
@@ -15,6 +15,7 @@ const messages: Message[] = [
 ];
 
 const MessageUI: React.FC = () => {
+    const router = useRouter();
     const renderItem = ({ item }: { item: Message }) => {
         return (
             <View style={[styles.messageContainer, item.sender === 'self' ? styles.selfMessage : styles.otherMessage]}>
@@ -46,6 +47,16 @@ const MessageUI: React.FC = () => {
                 <TouchableOpacity style={styles.sendButton}>
                     <Text style={styles.sendText}>Send</Text>
                 </TouchableOpacity>
+            </View>
+            <View>
+            <TouchableOpacity
+              onPress={() => router.push('./messageList')}
+            >
+              <Text>
+              Go To MessageList page
+              </Text>
+            </TouchableOpacity>
+
             </View>
         </View>
     );

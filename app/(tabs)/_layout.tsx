@@ -98,7 +98,7 @@ export default function TabLayout() {
         navigateToAccount={() => navigate("/(tabs)/account")}
         navigateToMessages={() => navigate("/(tabs)/messages")}
         navigateToNotifications={() => navigate("/(tabs)/notifications")}
-        navigateToLogIn={() => navigate("/")}
+        navigateToLogIn={() => navigate("../../app/")}
         // to do, log out.
       />
 
