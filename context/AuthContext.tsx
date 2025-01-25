@@ -54,3 +54,11 @@ export const useAuth = () => {
   }
   return context;
 };
+
+/*
+Ways to sign out:
+
+1. stop server
+2. npm clean cache --force
+3. code error, does not make your session null but would redirect you to login (happens in my moodtracker.tsx)
+*/
