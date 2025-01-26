@@ -87,6 +87,13 @@ export default function TabLayout() {
             tabBarLabel: "account",
           }}
         />
+        <Tabs.Screen
+          name="availability/[id]"
+          options={{
+            title: "Availability Details",
+            tabBarButton: () => null, // Hide from tab bar
+          }}
+        />
         {/* <Tabs.Screen name="/app/index" /> */}
       </Tabs>
 

@@ -9,17 +9,18 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { createClient } from "@supabase/supabase-js";
-import { useRouter } from 'expo-router'
+import { useRouter } from "expo-router";
 
 const supabase = createClient(
   "https://ybpoanqhkokhdqucwchy.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlicG9hbnFoa29raGRxdWN3Y2h5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ0MDg2MTUsImV4cCI6MjA0OTk4NDYxNX0.pxmpPITVIItZ_pcChUmmx06C8CkMfg5E80ukMGfPZkU"
 );
 
-export default function CounselorList({ navigation }: any) {
+export default function CounselorList() {
   const [counselors, setCounselors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+
   useEffect(() => {
     fetchCounselors();
   }, []);
@@ -27,70 +28,36 @@ export default function CounselorList({ navigation }: any) {
   async function fetchCounselors() {
     let { data, error } = await supabase
       .from("users")
-      .select("name, contact_number")
+      .select("user_id, name, contact_number")
       .eq("user_type", "counselor");
-
 
     if (error) console.error(error);
     else setCounselors(data || []);
+    console.log("Data of Counselors:", JSON.stringify(data, null, 2)); // Pretty print the objects
+    // is this the right console.log ? I don't understand why it is null, but on my app, it displays the counselor's name, and number, fetchcounselor is working correctly.
     setLoading(false);
   }
 
   const renderItem = ({ item }: { item: any }) => (
-    <TouchableOpacity style={styles.item}>
-      {/* Image Placeholder */}
+    <TouchableOpacity
+      style={styles.item}
+      onPress={() => {
+        console.log("Navigating to:", item.user_id); // Check if user_id is available
+        router.push(`/availability/${item.user_id}`);
+      }}
+    >
       <Image
         source={{
           uri: "https://static.vecteezy.com/system/resources/thumbnails/036/594/092/small_2x/man-empty-avatar-photo-placeholder-for-social-networks-resumes-forums-and-dating-sites-male-and-female-no-photo-images-for-unfilled-user-profile-free-vector.jpg",
-        }} // Placeholder image URL
+        }}
         style={styles.image}
       />
-      {/* Name and Contact Number */}
       <View style={styles.details}>
         <Text style={styles.name}>{item.name}</Text>
         <Text style={styles.contact}>{item.contact_number}</Text>
       </View>
     </TouchableOpacity>
-    /*
-      After clicking this button, I want to redirect this to the counselor's availability schedule
-      do I need to create page inside /(tabs) that is [id]? and make it dynamic routing ? 
-
-      I have a template of availability.tsx and have a calendar UI already as well as the "selected date" functionality.
-
-      So i want after selecting the date, the availability time of that counselor should be displayed below the calendar UI
-
-      This page needs to be scrollable since it will contain:
-      1. Photo (place holder)
-      2. Name
-      3. Contact Number
-      4. Credentials
-      5. Short Biography
-      6. Calendar UI 
-      7. the availability time list after clicking a date from calendar UI
-      8. Button to book an appointment
-
-      note: these are listed as name, format, type respectively:
-
-      table: availability_schedules
-        - availability_schedule_id uuid string
-        - counselor_id uuid string Foreign Key, REFERENCES(users)
-        - start_time time without time zone string
-        - end_time time without time zone string
-        - date date string
-        - is_available boolean boolean
-
-      table: users (there are many things but these are the ones that I would use)
-        - name varchar
-        - contact number varchar
-        - credentials text
-        - short_biography text
-
-      Don't worry because there is a relationship between availability_schedules and users
-      FK (counselor_id) REFERENCES (users) 
-      
-    */
   );
-
 
   if (loading) {
     return (
@@ -102,81 +69,31 @@ export default function CounselorList({ navigation }: any) {
 
   return (
     <View style={{ marginTop: "10%" }}>
-      <View>
-        <Text style={styles.title}>Counselor's List</Text>
-      </View>
+      <Text style={styles.title}>Counselor's List</Text>
       <FlatList
-        data={counselors} // The list of users with `user_type = counselor`
+        data={counselors}
         keyExtractor={(item) => item.id}
-        renderItem={renderItem} // Renders each counselor row
+        renderItem={renderItem}
         contentContainerStyle={styles.list}
       />
-      <TouchableOpacity 
-        onPress={() => { 
-          router.push('/app/(tabs)/availability')
-          console.log('test availability button is pressed')
-        }}>    
-        <Text> Test button go to availability </Text> 
-      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  list: {
-    padding: 16,
-  },
+  list: { padding: 16 },
   item: {
+    flexDirection: "row",
     padding: 16,
     marginBottom: 12,
     backgroundColor: "#fff",
     borderRadius: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
     elevation: 2,
   },
-  name: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  role: {
-    fontSize: 14,
-    color: "#555",
-  },
-  loader: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  image: {
-    width: 50,
-    height: 50,
-    borderRadius: 25, // Makes the image circular
-    marginRight: 16,
-  },
-  details: {
-    flex: 1, // Ensures the name and contact stretch properly
-  },
-  contact: {
-    fontSize: 14,
-    color: "#555",
-  },
-  title: {
-        fontSize: 24,
-        fontWeight: '800',
-        color: '#1f2937',
-        textAlign: 'center',
-    },
+  image: { width: 50, height: 50, borderRadius: 25, marginRight: 16 },
+  details: { flex: 1 },
+  name: { fontSize: 18, fontWeight: "bold" },
+  contact: { fontSize: 14, color: "#555" },
+  loader: { flex: 1, justifyContent: "center", alignItems: "center" },
+  title: { fontSize: 24, fontWeight: "800", textAlign: "center" },
 });
-
-/*
-To do: 
-
-- availability of counselors
-- once availability is clicked, display details 
-- contains book appointment
-- interface of the upcoming appointment and a cancel / reschedule
-- validations for appointment logic
-
-*/
