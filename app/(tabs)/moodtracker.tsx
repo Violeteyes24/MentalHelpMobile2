@@ -50,38 +50,42 @@ const EmotionAnalysis: React.FC = () => {
     console.log("Session in Mood Tracker UseEffect", session);
   }, []);
 
-  async function insertMoodTrackerData() {
-    try {
-      setLoading(true);
+async function insertMoodTrackerData() {
+  try {
+    setLoading(true);
 
-      // Clamp values before insertion
-      const insertData = Object.entries(emotions).map(
-        ([mood_type, intensity]) => ({
-          mood_type,
-          intensity: Math.min(10, Math.max(1, Math.round(intensity))),
-          user_id: session?.user.id,
-        })
-      );
+    // Prepare and clamp the values before insertion
+    const insertData = Object.entries(emotions).map(
+      ([mood_type, intensity]) => ({
+        mood_type,
+        intensity: Math.min(10, Math.max(1, Math.round(intensity))), // Clamp to 1-10
+        user_id: session?.user.id, // Add user ID
+      })
+    );
 
-      const { data, error } = await supabase
-        .from("mood_tracker")
-        .insert(insertData);
-        console.log(insertData);
+    console.log("Data to Insert:", insertData);
 
-      if (error) {
-        console.error("Insert Error:", error);
-        throw error;
-      }
-
-      console.log("Insert Success:", data);
-    } catch (error) {
-      if (error instanceof Error) {
-        Alert.alert("Error", error.message);
-      }
-    } finally {
-      setLoading(false);
+    // Insert into the database and request the inserted rows
+    const { data, error } = await supabase
+      .from("mood_tracker")
+      .insert(insertData)
+      .select(); // Explicitly request inserted rows
+      console.log(insertData);
+      
+    if (error) {
+      console.error("Insert Error:", error);
+      throw error;
     }
+
+    console.log("Insert Success:", data); // Now this will contain the inserted rows
+  } catch (error) {
+    if (error instanceof Error) {
+      Alert.alert("Error", error.message);
+    }
+  } finally {
+    setLoading(false);
   }
+}
 
   return (
     <SafeAreaView style={{ flex: 1, padding: 16 }}>
