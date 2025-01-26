@@ -1,18 +1,18 @@
-// /components/Drawer.tsx
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Pressable } from 'react-native';
 import { Icon } from '@rneui/themed';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'expo-router';
+import { useAuth } from '../../context/AuthContext';
 
 interface DrawerProps {
-  navigateToAccount: () => void; // Explicitly type as a function that returns void
+  navigateToAccount: () => void;
   navigateToMessages: () => void;
   navigateToNotifications: () => void;
   navigateToLogIn: () => void;
   toggleDrawer: () => void;
   closeDrawer: () => void;
-  slideAnim: Animated.Value; // Assuming this is an Animated.Value from react-native
-  drawerOpen: boolean; // Explicitly type as a boolean
+  slideAnim: Animated.Value;
+  drawerOpen: boolean;
 }
 
 const Drawer = ({
@@ -26,9 +26,25 @@ const Drawer = ({
   drawerOpen,
 }: DrawerProps) => {
   const router = useRouter();
+  const { signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Error signing out:", error.message);
+      } else {
+        console.log("Successfully logged out");
+        signOut(); // Update the session state
+        navigateToLogIn(); // Navigate to the login page
+      }
+    } catch (err) {
+      console.error("Unexpected error during sign out:", err);
+    }
+  };
+
   return (
     <>
-      {/* Menu Icon */}
       <View style={{ position: "absolute", top: "5%", right: "5%" }}>
         <Icon
           name="menu"
@@ -39,12 +55,10 @@ const Drawer = ({
         />
       </View>
 
-      {/* Overlay */}
       {drawerOpen && (
         <Pressable style={styles.overlay} onPress={closeDrawer}></Pressable>
       )}
 
-      {/* Sliding Drawer */}
       <Animated.View
         style={[styles.drawer, { transform: [{ translateX: slideAnim }] }]}
       >
@@ -58,23 +72,7 @@ const Drawer = ({
           <Text style={styles.drawerItem}>Notifications</Text>
         </TouchableOpacity>
         <View style={{ flex: 1, justifyContent: "flex-end" }}>
-          <TouchableOpacity
-            onPress={async () => {
-              try {
-                const { error } = await supabase.auth.signOut();
-                if (error) {
-                  console.error("Error signing out:", error.message);
-                } else {
-                  console.log("Successfully logged out");
-                  // Sign out the user
-                  navigateToLogIn();
-                  // to do, log out.
-                }
-              } catch (err) {
-                console.error("Unexpected error during sign out:", err);
-              }
-            }}
-          >
+          <TouchableOpacity onPress={handleSignOut}>
             <Text style={[styles.drawerItem, styles.logout]}>Logout</Text>
           </TouchableOpacity>
         </View>
@@ -84,39 +82,39 @@ const Drawer = ({
 };
 
 const styles = StyleSheet.create({
-    drawer: {
-        position: 'absolute',
-        top: 0,
-        bottom: 0,
-        left: 0,
-        width: '60%',
-        backgroundColor: '#ffffff',
-        opacity: 1,
-        padding: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 2, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        zIndex: 1,
-    },
-    drawerItem: {
-        fontSize: 18,
-        fontWeight: '600',
-        marginVertical: 15,
-        color: '#000',
-    },
-    logout: {
-        color: 'red',
-    },
-    overlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'transparent',
-        zIndex: 0,
-    },
+  drawer: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: '60%',
+    backgroundColor: '#ffffff',
+    opacity: 1,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    zIndex: 1,
+  },
+  drawerItem: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginVertical: 15,
+    color: '#000',
+  },
+  logout: {
+    color: 'red',
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 0,
+  },
 });
 
 export default Drawer;

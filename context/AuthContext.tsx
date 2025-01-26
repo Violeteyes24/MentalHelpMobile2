@@ -14,26 +14,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-useEffect(() => {
-  console.log("Fetching initial session...");
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    console.log("Initial session:", session);
-    setSession(session);
-    setIsLoading(false);
-  });
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsLoading(false);
+    });
 
-  const {
-    data: { subscription },
-  } = supabase.auth.onAuthStateChange((_event, session) => {
-    console.log("Auth state changed:", session);
-    setSession(session);
-  });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
 
-  return () => {
-    subscription.unsubscribe();
-  };
-}, []);
-
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -54,11 +50,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
-/*
-Ways to sign out:
-
-1. stop server
-2. npm clean cache --force
-3. code error, does not make your session null but would redirect you to login (happens in my moodtracker.tsx)
-*/
