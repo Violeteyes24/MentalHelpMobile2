@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Button, SafeAreaView, Alert } from "react-native";
+import {
+  View,
+  Text,
+  Button,
+  SafeAreaView,
+  Alert,
+  StyleSheet,
+  Modal,
+  TouchableOpacity,
+} from "react-native";
 import Slider from "@react-native-community/slider";
 import PieChart from "react-native-pie-chart";
 import { supabase } from "../../lib/supabase";
@@ -7,12 +16,12 @@ import { useAuth } from "../../context/AuthContext";
 
 const EmotionAnalysis: React.FC = () => {
   const [emotions, setEmotions] = useState<{ [key: string]: number }>({
-    Happy: 5,
+    Happy: 10,
     Afraid: 5,
-    Angry: 5,
-    Stressed: 5,
-    Confused: 5,
-    Disappointed: 5,
+    Angry: 3,
+    Stressed: 2,
+    Confused: 4,
+    Disappointed: 1,
   });
 
   const emotionColors: { [key: string]: string } = {
@@ -24,68 +33,58 @@ const EmotionAnalysis: React.FC = () => {
     Disappointed: "#FFA500",
   };
 
+  const [modalVisible, setModalVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { session } = useAuth();
+
   const handleSliderChange = (emotion: string, value: number) => {
     setEmotions((prevState) => ({
       ...prevState,
-      [emotion]: Math.min(10, Math.max(1, value)), // Clamp to 1-10
+      [emotion]: value,
     }));
   };
 
   const widthAndHeight = 250;
 
-  // Prepare series with both `value` and `color` for PieChart
   const series = Object.entries(emotions).map(([emotion, value]) => ({
-    value: Math.round(value), // Ensure the value is a whole number
-    color: emotionColors[emotion], // Use the color corresponding to the emotion
+    value: Math.min(10, Math.max(1, Math.round(value))),
+    color: emotionColors[emotion],
   }));
 
-  const sliceColor = Object.entries(emotions).map(
-    ([emotion]) => emotionColors[emotion]
-  );
+  async function insertMoodTrackerData() {
+    try {
+      setLoading(true);
 
-  const [loading, setLoading] = useState(false);
-  const { session } = useAuth();
+      const insertData = Object.entries(emotions).map(
+        ([mood_type, intensity]) => ({
+          mood_type,
+          intensity: Math.min(10, Math.max(1, Math.round(intensity))),
+          user_id: session?.user.id,
+        })
+      );
 
-  useEffect(() => {
-    console.log("Session in Mood Tracker UseEffect", session);
-  }, []);
+      console.log("Data to Insert:", insertData);
 
-async function insertMoodTrackerData() {
-  try {
-    setLoading(true);
+      const { data, error } = await supabase
+        .from("mood_tracker")
+        .insert(insertData)
+        .select();
 
-    // Prepare and clamp the values before insertion
-    const insertData = Object.entries(emotions).map(
-      ([mood_type, intensity]) => ({
-        mood_type,
-        intensity: Math.min(10, Math.max(1, Math.round(intensity))), // Clamp to 1-10
-        user_id: session?.user.id, // Add user ID
-      })
-    );
+      if (error) {
+        console.error("Insert Error:", error);
+        throw error;
+      }
 
-    console.log("Data to Insert:", insertData);
-
-    // Insert into the database and request the inserted rows
-    const { data, error } = await supabase
-      .from("mood_tracker")
-      .insert(insertData)
-      .select(); // Explicitly request inserted rows
-      console.log(insertData);
-      
-    if (error) {
-      console.error("Insert Error:", error);
-      throw error;
+      console.log("Insert Success:", data);
+    } catch (error) {
+      if (error instanceof Error) {
+        Alert.alert("Error", error.message);
+      }
+    } finally {
+      setLoading(false);
+      setModalVisible(true); // Show modal after insertion
     }
-
-    console.log("Insert Success:", data); // Now this will contain the inserted rows
-  } catch (error) {
-    if (error instanceof Error) {
-      Alert.alert("Error", error.message);
-    }
-  } finally {
-    setLoading(false);
   }
-}
 
   return (
     <SafeAreaView style={{ flex: 1, padding: 16 }}>
@@ -109,8 +108,8 @@ async function insertMoodTrackerData() {
           <Text style={{ width: 90, fontSize: 14 }}>{emotion}:</Text>
           <Slider
             style={{ width: 275 }}
-            minimumValue={1} // Set minimum value to 1
-            maximumValue={10} // Set maximum value to 10
+            minimumValue={1}
+            maximumValue={10}
             value={emotions[emotion]}
             onValueChange={(value) => handleSliderChange(emotion, value)}
             thumbTintColor={emotionColors[emotion]}
@@ -121,11 +120,7 @@ async function insertMoodTrackerData() {
       ))}
 
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <PieChart
-          widthAndHeight={widthAndHeight}
-          series={series}
-          cover={0.45}
-        />
+        <PieChart widthAndHeight={widthAndHeight} series={series} />
         <View style={{ marginTop: "5%", alignItems: "center" }}>
           <Button
             title="See Results"
@@ -134,8 +129,68 @@ async function insertMoodTrackerData() {
           />
         </View>
       </View>
+
+      {/* Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalBackground}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Mood Tracker Results</Text>
+            {Object.entries(emotions).map(([emotion, value]) => (
+              <Text key={emotion} style={styles.modalText}>
+                {emotion}: {Math.min(10, Math.max(1, Math.round(value)))}
+              </Text>
+            ))}
+            <TouchableOpacity
+              onPress={() => setModalVisible(false)}
+              style={styles.closeButton}
+            >
+              <Text style={styles.closeButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  modalBackground: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalContainer: {
+    width: "80%",
+    backgroundColor: "white",
+    borderRadius: 10,
+    padding: 20,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  modalText: {
+    fontSize: 16,
+    marginVertical: 5,
+  },
+  closeButton: {
+    marginTop: 20,
+    backgroundColor: "#34d399",
+    borderRadius: 5,
+    padding: 10,
+  },
+  closeButtonText: {
+    color: "white",
+    fontWeight: "bold",
+  },
+});
 
 export default EmotionAnalysis;
