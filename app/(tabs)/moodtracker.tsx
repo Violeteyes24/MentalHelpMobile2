@@ -35,9 +35,10 @@ const EmotionAnalysis: React.FC = () => {
 
   // Prepare series with both `value` and `color` for PieChart
   const series = Object.entries(emotions).map(([emotion, value]) => ({
-    number: value,
-    color: emotionColors[emotion],
+    value: Math.round(value), // Ensure the value is a whole number
+    color: emotionColors[emotion], // Use the color corresponding to the emotion
   }));
+
   const sliceColor = Object.entries(emotions).map(
     ([emotion]) => emotionColors[emotion]
   );
@@ -65,6 +66,7 @@ const EmotionAnalysis: React.FC = () => {
       const { data, error } = await supabase
         .from("mood_tracker")
         .insert(insertData);
+        console.log(insertData);
 
       if (error) {
         console.error("Insert Error:", error);
@@ -117,8 +119,8 @@ const EmotionAnalysis: React.FC = () => {
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <PieChart
           widthAndHeight={widthAndHeight}
-          series={series.map((slice) => slice.number)}
-          sliceColor={series.map((slice) => slice.color)}
+          series={series}
+          cover={0.45}
         />
         <View style={{ marginTop: "5%", alignItems: "center" }}>
           <Button
