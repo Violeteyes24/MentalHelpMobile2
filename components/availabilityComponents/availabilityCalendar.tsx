@@ -36,7 +36,7 @@ export default function AvailabilityCalendar({
       .select("*")
       .eq("counselor_id", counselorId)
       .eq("date", selectedDate);
-      console.log(data);
+      // console.log(data);
     if (error) console.error(error);
     else setAvailability(data || []);
   }
@@ -81,8 +81,12 @@ export default function AvailabilityCalendar({
           />
           <Text style={styles.name}>{counselorDetails.name}</Text>
           <Text style={styles.contact}>{counselorDetails.contact_number}</Text>
-          <Text style={styles.credentials}>{counselorDetails.credentials}</Text>
-          <Text style={styles.bio}>{counselorDetails.short_biography}</Text>
+          <View style={styles.card}>
+            <Text style={styles.credentials}>
+              Credentials: {counselorDetails.credentials}
+            </Text>
+            <Text style={styles.bio}>Biography: {counselorDetails.short_biography}</Text>
+          </View>
         </>
       )}
       <Calendar
@@ -114,9 +118,6 @@ export default function AvailabilityCalendar({
     </View>
   );
 
-
-
-
   return (
     <FlatList
       data={availability}
@@ -131,7 +132,7 @@ export default function AvailabilityCalendar({
 
 const styles = StyleSheet.create({
   container: { padding: 16 },
-  header: { marginBottom: 20 },
+  header: { marginBottom: 20, marginTop: 40 },
   image: { width: 100, height: 100, borderRadius: 50, alignSelf: "center" },
   name: { fontSize: 20, fontWeight: "bold", textAlign: "center" },
   contact: { textAlign: "center", marginBottom: 10 },
@@ -180,5 +181,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600", // Makes the time more prominent
     color: "#000", // Adjust color if needed
-  }
+  },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 15,
+    margin: 10,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,  // For Android shadow
+  },
 });

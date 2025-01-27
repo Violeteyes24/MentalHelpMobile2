@@ -28,6 +28,7 @@ export default function Account() {
 
   useEffect(() => {
     console.log("Session in useEffect:", session);
+    console.log("User ID in updates:", session?.user.id);
     if (session) getProfile();
     console.log(session);
   }, [session]);
@@ -77,66 +78,81 @@ export default function Account() {
     }
   }
 
-  async function updateProfile({
-    name,
-    username,
-    address,
-    contact_number,
-    birthday,
-    gender,
-    department,
-    program,
-    program_year_level,
-    short_biography,
-    credentials,
-  }: {
-    name: string;
-    username: string;
-    address: string;
-    contact_number: string;
-    birthday: string;
-    gender: string;
-    department: string;
-    program: string;
-    program_year_level: string;
-    short_biography: string;
-    credentials: string;
-  }) {
-    try {
-      setLoading(true);
-      if (!session?.user) throw new Error("No user on the session!");
+async function updateProfile({
+  name,
+  username,
+  address,
+  contact_number,
+  birthday,
+  gender,
+  department,
+  program,
+  program_year_level,
+  short_biography,
+  credentials,
+}: {
+  name: string;
+  username: string;
+  address: string;
+  contact_number: string;
+  birthday: string;
+  gender: string;
+  department: string;
+  program: string;
+  program_year_level: string;
+  short_biography: string;
+  credentials: string;
+}) {
+  try {
+    setLoading(true);
+    if (!session?.user) throw new Error("No user on the session!");
 
-      const updates = {
-        id: session?.user.id,
-        name,
-        username,
-        address,
-        contact_number,
-        birthday: new Date(birthday).toISOString(),
-        gender,
-        department,
-        program,
-        program_year_level,
-        short_biography,
-        credentials,
-        updated_at: new Date().toISOString(),
-      };
+    // Fetch current user data to ensure `user_type` is preserved
+    const { data: userData, error: fetchError } = await supabase
+      .from("users")
+      .select("user_type")
+      .eq("user_id", session?.user.id)
+      .single();
 
-      const { error } = await supabase.from("users").upsert(updates);
-
-      if (error) {
-        throw error;
-      }
-
-      Alert.alert("Success", "Profile updated successfully!");
-    } catch (error) {
-      if (error instanceof Error) {
-        Alert.alert("Error", error.message);
-      }
-    } finally {
-      setLoading(false);
+    if (fetchError || !userData) {
+      throw new Error(
+        "Failed to fetch user_type. Please ensure the user exists."
+      );
     }
+
+    const updates = {
+      user_id: session?.user.id,
+      name,
+      username,
+      address,
+      contact_number,
+      birthday: new Date(birthday).toISOString(),
+      gender,
+      department,
+      program,
+      program_year_level,
+      short_biography,
+      credentials,
+      user_type: userData.user_type, // Preserve the existing user_type
+    };
+
+    const { error } = await supabase.from("users").upsert(updates);
+
+    if (error) {
+      console.error("Update Error:", error.message);
+      throw error;
+    }
+
+    Alert.alert("Success", "Profile updated successfully!");
+  } catch (error) {
+    if (error instanceof Error) {
+      Alert.alert("Error", error.message);
+    }
+  } finally {
+    setLoading(false);
   }
+}
+
 
   return (
     <ScrollView style={styles.container}>
@@ -267,20 +283,6 @@ export default function Account() {
           color="#34d399"
         />
       </View>
-
-      {/* <View style={[styles.verticallySpaced, { alignItems: "center" }]}>
-        <Link href="/app">
-          <Button
-            title="Sign Out"
-            onPress={async () => {
-              await supabase.auth.signOut();
-              console.log("Sign Out Button Pressed");
-            }}
-            color="#34d399"
-            style={{ width: "100%" }}
-          />
-        </Link>
-      </View> */}
 
       <View style={[styles.verticallySpaced, styles.mb]}>
         <Button title="Home" onPress={() => navigateToHome()} color="#34d399" />
