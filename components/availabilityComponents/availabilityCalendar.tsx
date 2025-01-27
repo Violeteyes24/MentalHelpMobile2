@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { createClient } from "@supabase/supabase-js";
+import { Icon } from "@rneui/themed";
 
 const supabase = createClient(
   "https://ybpoanqhkokhdqucwchy.supabase.co",
@@ -35,7 +36,7 @@ export default function AvailabilityCalendar({
       .select("*")
       .eq("counselor_id", counselorId)
       .eq("date", selectedDate);
-
+      console.log(data);
     if (error) console.error(error);
     else setAvailability(data || []);
   }
@@ -53,8 +54,23 @@ export default function AvailabilityCalendar({
 
   const handleDayPress = (day: any) => setSelectedDate(day.dateString);
 
-  return (
-    <View style={styles.container}>
+  const handleBooking = (slot: any) => {
+    // Handle the booking logic here
+    console.log("Booking slot:", slot);
+    alert(`You booked the slot: ${slot.start_time} - ${slot.end_time}`);
+  };
+
+  const convertTo12Hour = (time: string) => {
+    const [hours, minutes] = time.split(":").map(Number); // Split hours and minutes
+    const ampm = hours >= 12 ? "PM" : "AM"; // Determine AM or PM
+    const hour12 = hours % 12 || 12; // Convert 0 or 12 to 12 for 12-hour format
+    return `${hour12}:${minutes.toString().padStart(2, "0")} ${ampm}`;
+  };
+
+
+
+  const renderHeader = () => (
+    <View style={styles.header}>
       {counselorDetails && (
         <>
           <Image
@@ -79,25 +95,43 @@ export default function AvailabilityCalendar({
           },
         }}
       />
-      <FlatList
-        data={availability}
-        keyExtractor={(item) => item.availability_schedule_id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[styles.slot, !item.is_available && styles.unavailable]}
-          >
-            <Text>
-              {item.start_time} - {item.end_time}
-            </Text>
+      <Text style={styles.scheduleNotice}>Schedule (Red is unavailable)</Text>
+    </View>
+  );
+
+  const renderSlot = ({ item }: { item: any }) => (
+    <View style={[styles.slot, !item.is_available && styles.unavailable]}>
+      <View style={styles.slotRow}>
+        <Text style={styles.timeText}>
+          {convertTo12Hour(item.start_time)} - {convertTo12Hour(item.end_time)}
+        </Text>
+        {item.is_available && (
+          <TouchableOpacity onPress={() => handleBooking(item)}>
+            <Icon name="event-available" size={24} color="#368a73" />
           </TouchableOpacity>
         )}
-      />
+      </View>
     </View>
+  );
+
+
+
+
+  return (
+    <FlatList
+      data={availability}
+      keyExtractor={(item) => item.availability_schedule_id}
+      renderItem={renderSlot}
+      ListHeaderComponent={renderHeader}
+      contentContainerStyle={styles.container}
+      // Add a button  to each render item to book an appointment
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
+  container: { padding: 16 },
+  header: { marginBottom: 20 },
   image: { width: 100, height: 100, borderRadius: 50, alignSelf: "center" },
   name: { fontSize: 20, fontWeight: "bold", textAlign: "center" },
   contact: { textAlign: "center", marginBottom: 10 },
@@ -110,4 +144,41 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   unavailable: { backgroundColor: "#ffcdd2" },
+  scheduleNotice: {
+    marginTop: 16,
+    marginBottom: 0,
+    fontSize: 18,
+    fontWeight: "600",
+    textAlign: "center",
+    color: "#333",
+  },
+  bookButton: {
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#368a73",
+    borderRadius: 5,
+    alignItems: "center",
+  },
+  bookButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  bookIcon: {
+    marginTop: 8,
+    padding: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent", // Optional for better alignment
+  },
+  slotRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between", // Ensures the icon is at the end
+  },
+  timeText: {
+    fontSize: 16,
+    fontWeight: "600", // Makes the time more prominent
+    color: "#000", // Adjust color if needed
+  }
 });
