@@ -1,15 +1,17 @@
 // app/(tabs)/_layout.tsx
 import { Tabs } from 'expo-router';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Animated, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import Drawer from '../../components/navbars/drawer';
 import BottomNavBar from '../../components/navbars/bottomNavBar';
+import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 export default function TabLayout() {
   const router = useRouter();
+  const { session } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const slideAnim = useState(new Animated.Value(width))[0];
 
@@ -36,6 +38,14 @@ export default function TabLayout() {
     router.push(path);
     closeDrawer();
   }, [router, closeDrawer]);
+
+  useEffect(() => {
+    if (!session) {
+      router.dismissAll();
+      // router.push('index');
+    }
+    console.log("Session in (tabs)/_layout:", session);
+  }, [session]);
 
   return (
     <>
@@ -94,7 +104,7 @@ export default function TabLayout() {
             tabBarButton: () => null, // Hide from tab bar
           }}
         />
-        {/* <Tabs.Screen name="/app/index" /> */}
+        {/* <Tabs.Screen name="../../app" /> */}
       </Tabs>
 
       <Drawer
@@ -105,7 +115,7 @@ export default function TabLayout() {
         navigateToAccount={() => navigate("/(tabs)/account")}
         navigateToMessages={() => navigate("/(tabs)/messages")}
         navigateToNotifications={() => navigate("/(tabs)/notifications")}
-        navigateToLogIn={() => navigate("../../app/")}
+        navigateToLogIn={() => router.replace("/")}
         // to do, log out.
       />
 

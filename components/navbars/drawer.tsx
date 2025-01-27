@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Pressab
 import { Icon } from '@rneui/themed';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 
 interface DrawerProps {
   navigateToAccount: () => void; // Explicitly type as a function that returns void
@@ -58,25 +59,15 @@ const Drawer = ({
           <Text style={styles.drawerItem}>Notifications</Text>
         </TouchableOpacity>
         <View style={{ flex: 1, justifyContent: "flex-end" }}>
-          <TouchableOpacity
-            onPress={async () => {
-              try {
-                const { error } = await supabase.auth.signOut();
-                if (error) {
-                  console.error("Error signing out:", error.message);
-                } else {
-                  console.log("Successfully logged out");
-                  // Sign out the user
-                  navigateToLogIn();
-                  // to do, log out.
-                }
-              } catch (err) {
-                console.error("Unexpected error during sign out:", err);
-              }
+          <Link
+            href= {{ pathname: '/' }}
+            onPress= {() => {
+              console.log('Logging out...');
+              supabase.auth.signOut();
             }}
           >
             <Text style={[styles.drawerItem, styles.logout]}>Logout</Text>
-          </TouchableOpacity>
+          </Link>
         </View>
       </Animated.View>
     </>

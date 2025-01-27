@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { Session } from "@supabase/supabase-js";
+import { useRouter } from "expo-router";
 
 type AuthContextType = {
   session: Session | null;
@@ -13,6 +14,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
 useEffect(() => {
   console.log("Fetching initial session...");
@@ -20,6 +22,7 @@ useEffect(() => {
     console.log("Initial session:", session);
     setSession(session);
     setIsLoading(false);
+    
   });
 
   const {
@@ -39,6 +42,12 @@ useEffect(() => {
     await supabase.auth.signOut();
     setSession(null);
   };
+
+  useEffect(() => {
+      if(!session){
+        router.push('/');
+      }
+    }, [session]);
 
   return (
     <AuthContext.Provider value={{ session, isLoading, signOut }}>

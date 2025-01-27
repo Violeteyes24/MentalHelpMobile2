@@ -3,13 +3,17 @@ import { View, Text } from 'react-native';
 import { Stack } from 'expo-router';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { Slot } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 function AppContent() {
   const { session, isLoading } = useAuth();
+  const router = useRouter();
 
   // Debugging logs for session state
   useEffect(() => {
-    console.log('Session in AppContent:', session);
+
+    // console.log('Session in AppContent:', session);
     if (!session) { // no session
       console.log('No session detected.');
     } else if (!session.user) { // not user session
@@ -17,7 +21,15 @@ function AppContent() {
     } else {
       console.log('Valid session and user detected:', session.user);
     }
+
   }, [session]);
+
+    useEffect(() => {
+      if (!session) {
+        router.push("/");
+      }
+      console.log("Session in AppContent:", session);
+    }, [session]);
 
   if (isLoading) {
     return (
@@ -42,7 +54,7 @@ return (
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <Slot />
     </AuthProvider>
   );
 }
