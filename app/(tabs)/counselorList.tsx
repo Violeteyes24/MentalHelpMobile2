@@ -40,6 +40,7 @@ export default function CounselorList() {
 
   const renderItem = ({ item }: { item: any }) => (
     <TouchableOpacity
+      key={item.id}
       style={styles.item}
       onPress={() => {
         console.log("Navigating to:", item.user_id); // Check if user_id is available
