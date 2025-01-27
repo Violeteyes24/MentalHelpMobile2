@@ -39,16 +39,15 @@ function AppContent() {
     );
   }
 
-return (
-  <Stack screenOptions={{ headerShown: false }}>
-    {!session || !session.user ? (
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-    ) : (
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-    )}
-  </Stack>
-);
-
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      {!session || !session.user ? (
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+      ) : (
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      )}
+    </Stack>
+  );
 }
 
 export default function App() {

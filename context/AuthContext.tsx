@@ -16,14 +16,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-useEffect(() => {
-  console.log("Fetching initial session...");
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    console.log("Initial session:", session);
-    setSession(session);
-    setIsLoading(false);
-    
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsLoading(false);
+      
   });
+
+  //  useEffect(() => {
+  //    if (!session) {
+  //      router.push("/");
+  //    }
+  //  }, [session]);
 
   const {
     data: { subscription },
@@ -33,8 +37,7 @@ useEffect(() => {
   });
 
   return () => {
-    subscription.unsubscribe();
-  };
+    subscription.unsubscribe(); };
 }, []);
 
 
@@ -43,11 +46,6 @@ useEffect(() => {
     setSession(null);
   };
 
-  useEffect(() => {
-      if(!session){
-        router.push('/');
-      }
-    }, [session]);
 
   return (
     <AuthContext.Provider value={{ session, isLoading, signOut }}>
