@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
+  Alert
 } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { createClient } from "@supabase/supabase-js";
@@ -54,11 +55,45 @@ export default function AvailabilityCalendar({
 
   const handleDayPress = (day: any) => setSelectedDate(day.dateString);
 
-  const handleBooking = (slot: any) => {
-    // Handle the booking logic here
-    console.log("Booking slot:", slot);
-    alert(`You booked the slot: ${slot.start_time} - ${slot.end_time}`);
-  };
+async function handleBooking(slot: any) {
+  Alert.alert(
+    "Confirm Booking", // Title
+    `Do you want to book the slot: ${slot.start_time} - ${slot.end_time}?`, // Message
+    [
+      {
+        text: "Cancel",
+        style: "cancel",
+        onPress: () => console.log("Booking canceled"), // Optional: Log or take action
+      },
+      {
+        text: "Confirm",
+        onPress: async () => {
+          console.log("Booking slot:", slot);
+          // Proceed with booking logic
+          const { data, error } = await supabase
+            .from("availability_schedules")
+            .update({ is_available: false })
+            .eq("counselor_id", counselorId)
+            .eq("availability_schedule_id", slot.availability_schedule_id)
+            .select();
+
+          if (error) {
+            console.error("Error updating availability:", error);
+            Alert.alert("Error", "Failed to book the slot. Please try again.");
+          } else {
+            console.log("Availability updated successfully:", data);
+            Alert.alert(
+              "Success",
+              `You successfully booked the slot: ${slot.start_time} - ${slot.end_time}`
+            );
+          }
+        },
+      },
+    ],
+    { cancelable: true } // Allow dismissal by tapping outside
+  );
+}
+
 
   const convertTo12Hour = (time: string) => {
     const [hours, minutes] = time.split(":").map(Number); // Split hours and minutes
@@ -66,8 +101,6 @@ export default function AvailabilityCalendar({
     const hour12 = hours % 12 || 12; // Convert 0 or 12 to 12 for 12-hour format
     return `${hour12}:${minutes.toString().padStart(2, "0")} ${ampm}`;
   };
-
-
 
   const renderHeader = () => (
     <View style={styles.header}>
@@ -99,6 +132,7 @@ export default function AvailabilityCalendar({
           },
         }}
       />
+      <Text style={styles.scheduleNotice}>{selectedDate}</Text>
       <Text style={styles.scheduleNotice}>Schedule (Red is unavailable)</Text>
     </View>
   );
@@ -125,7 +159,6 @@ export default function AvailabilityCalendar({
       renderItem={renderSlot}
       ListHeaderComponent={renderHeader}
       contentContainerStyle={styles.container}
-      // Add a button  to each render item to book an appointment
     />
   );
 }

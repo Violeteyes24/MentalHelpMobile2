@@ -117,3 +117,8 @@ const styles = StyleSheet.create({
     width: "90%",
   },
 });
+/*
+TO DO:
+1. Based on mood type and intensity, calculate the overall mood for the day.
+2. Display the overall mood for the day in a creative, separate component.
+ */
