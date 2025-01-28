@@ -82,15 +82,15 @@ export default function HomeScreen() {
             data={radarChartData}
             maxValue={5} // Set the maximum value (based on the mood intensity scale)
             gradientColor={{
-              startColor: "#FF9432", // Customize gradient color
-              endColor: "#FFF8F1",
+              startColor: "#34d399", // Customize gradient color
+              endColor: "#e1ede3",
               count: 5,
             }}
-            stroke={["#FFE8D3", "#FFE8D3", "#FFE8D3", "#FFE8D3", "#ff9532"]} // Customize strokes
+            stroke={["#A3D9A5", "#68C48E", "#34D399", "#1C7F56", "#0B5A3B"]}// Customize strokes
             strokeWidth={[0.5, 0.5, 0.5, 0.5, 1]} // Set stroke width
             strokeOpacity={[1, 1, 1, 1, 0.13]} // Set stroke opacity
             labelColor="#433D3A" // Set label color
-            dataFillColor="#FF9432" // Set data fill color
+            dataFillColor="#34d399" // Set data fill color
             dataFillOpacity={0.8} // Set data fill opacity
             dataStroke="salmon" // Set data stroke color
             dataStrokeWidth={2} // Set data stroke width
