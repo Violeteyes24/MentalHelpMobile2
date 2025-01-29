@@ -2,11 +2,13 @@ import React, { useState } from "react";
 import {
   View,
   Text,
+  Button,
   SafeAreaView,
   Alert,
   StyleSheet,
   Modal,
   TouchableOpacity,
+  ScrollView,
 } from "react-native";
 import Slider from "@react-native-community/slider";
 import PieChart from "react-native-pie-chart";
@@ -24,12 +26,12 @@ const EmotionAnalysis: React.FC = () => {
   });
 
   const emotionColors: { [key: string]: string } = {
-    Happy: "#FFD700", // Gold
-    Afraid: "#1E90FF", // Dodger Blue
-    Angry: "#FF4500", // Orange Red
-    Stressed: "#32CD32", // Lime Green
-    Confused: "#8B4513", // Saddle Brown
-    Disappointed: "#FFA500", // Orange
+    Happy: "#FFFF00",
+    Afraid: "#0000FF",
+    Angry: "#FF0000",
+    Stressed: "#008000",
+    Confused: "#A52A2A",
+    Disappointed: "#FFA500",
   };
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -43,7 +45,7 @@ const EmotionAnalysis: React.FC = () => {
     }));
   };
 
-  const widthAndHeight = 280; // Increased for better visualization
+  const widthAndHeight = 250;
 
   const series = Object.entries(emotions).map(([emotion, value]) => ({
     value: Math.min(10, Math.max(1, Math.round(value))),
@@ -87,49 +89,42 @@ const EmotionAnalysis: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.headerText}>Mood Tracker</Text>
-      <Text style={styles.subHeaderText}>
-        Adjust sliders to track your mood
-      </Text>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.title}>Mood Tracker</Text>
+        <Text style={styles.subtitle}>Swipe the slider for each emotion</Text>
 
-      {Object.keys(emotions).map((emotion) => (
-        <View key={emotion} style={styles.sliderContainer}>
-          <Text
-            style={[styles.emotionLabel, { color: emotionColors[emotion] }]}
-          >
-            {emotion}
-          </Text>
-          <Slider
-            style={styles.slider}
-            minimumValue={1}
-            maximumValue={10}
-            value={emotions[emotion]}
-            onValueChange={(value) => handleSliderChange(emotion, value)}
-            thumbTintColor={emotionColors[emotion]}
-            minimumTrackTintColor={emotionColors[emotion]}
-            maximumTrackTintColor="#ccc"
-          />
-          <Text style={styles.valueText}>{Math.round(emotions[emotion])}</Text>
+        <View style={styles.pieChartContainer}>
+          <PieChart widthAndHeight={widthAndHeight} series={series} />
+          
         </View>
-      ))}
-
-      <View style={styles.chartContainer}>
-        <PieChart widthAndHeight={widthAndHeight} series={series} />
-      </View>
-
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => insertMoodTrackerData()}
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>
-          {loading ? "Saving..." : "See Results"}
-        </Text>
-      </TouchableOpacity>
+        <View style={styles.card}>
+          {Object.keys(emotions).map((emotion) => (
+            <View key={emotion} style={styles.sliderContainer}>
+              <Text style={styles.emotionLabel}>{emotion}:</Text>
+              <Slider
+                style={styles.slider}
+                minimumValue={1}
+                maximumValue={10}
+                value={emotions[emotion]}
+                onValueChange={(value) => handleSliderChange(emotion, value)}
+                thumbTintColor={emotionColors[emotion]}
+                minimumTrackTintColor={emotionColors[emotion]}
+                maximumTrackTintColor="#000000"
+              />
+            </View>
+          ))}
+          <TouchableOpacity
+            onPress={insertMoodTrackerData}
+            style={styles.button}
+          >
+            <Text style={styles.buttonText}>See Results</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
 
       {/* Modal */}
       <Modal
-        animationType="fade"
+        animationType="slide"
         transparent={true}
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
@@ -138,10 +133,7 @@ const EmotionAnalysis: React.FC = () => {
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>Mood Tracker Results</Text>
             {Object.entries(emotions).map(([emotion, value]) => (
-              <Text
-                key={emotion}
-                style={[styles.modalText, { color: emotionColors[emotion] }]}
-              >
+              <Text key={emotion} style={styles.modalText}>
                 {emotion}: {Math.min(10, Math.max(1, Math.round(value)))}
               </Text>
             ))}
@@ -162,60 +154,63 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: "#f5f5f5",
   },
-  headerText: {
-    fontSize: 26,
+  scrollContent: {
+    paddingBottom: 20,
+  },
+  title: {
+    fontSize: 24,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 8,
-    color: "#333",
   },
-  subHeaderText: {
-    fontSize: 16,
+  subtitle: {
+    fontSize: 18,
     textAlign: "center",
-    marginBottom: 20,
-    color: "#666",
+    marginVertical: 16,
+  },
+  card: {
+    backgroundColor: "#ffffff",
+    borderRadius: 15,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    marginTop: 15
   },
   sliderContainer: {
     flexDirection: "row",
     alignItems: "center",
     marginVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: "#fff",
-    elevation: 3,
-    paddingVertical: 10,
   },
   emotionLabel: {
     width: 90,
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 14,
   },
   slider: {
-    flex: 1,
+    width: 250,
   },
-  valueText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginLeft: 10,
-  },
-  chartContainer: {
-    marginTop: 20,
+  pieChartContainer: {
     alignItems: "center",
+    marginTop: 16,
   },
   button: {
     backgroundColor: "#34d399",
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginVertical: 20,
-    alignItems: "center",
-    elevation: 3,
+    borderRadius: 25,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    marginTop: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   buttonText: {
-    color: "#fff",
-    fontSize: 18,
+    color: "white",
     fontWeight: "bold",
+    textAlign: "center",
   },
   modalBackground: {
     flex: 1,
@@ -229,31 +224,25 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 20,
     alignItems: "center",
-    elevation: 5,
   },
   modalTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "bold",
     marginBottom: 10,
-    color: "#333",
   },
   modalText: {
-    fontSize: 18,
+    fontSize: 16,
     marginVertical: 5,
-    fontWeight: "bold",
   },
   closeButton: {
     marginTop: 20,
     backgroundColor: "#34d399",
     borderRadius: 5,
     padding: 10,
-    width: "80%",
-    alignItems: "center",
   },
   closeButtonText: {
     color: "white",
     fontWeight: "bold",
-    fontSize: 16,
   },
 });
 
