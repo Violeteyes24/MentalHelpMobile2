@@ -1,55 +1,71 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-// both questions & responses will be stored @supabase and create simple algorithm to generate questions based on user input.
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+} from "react-native";
+
 const questions = [
-    "How are you feeling today?",
-    "Would you like to schedule an appointment with a counselor?",
-    "Would you like to update your mood tracker?",
-]; 
+  "How are you feeling today?",
+  "Would you like to schedule an appointment with a counselor?",
+  "Would you like to update your mood tracker?",
+];
 
 const responses: { [key: string]: string } = {
-    "How are you feeling today?": "I'm here to listen! Can you share a bit more about how you're feeling?",
-    "Would you like to schedule an appointment with a counselor?": "I can help with that! Please contact our support to find available slots.",
-    "Would you like to update your mood tracker?": "Sure! Please go to the mood tracker section to log your mood.",
+  "How are you feeling today?":
+    "I'm here to listen! Can you share a bit more about how you're feeling?",
+  "Would you like to schedule an appointment with a counselor?":
+    "I can help with that! Please contact our support to find available slots.",
+  "Would you like to update your mood tracker?":
+    "Sure! Please go to the mood tracker section to log your mood.",
 };
 
 const Chatbot = () => {
-    const [chatLog, setChatLog] = useState<{ question: string, response: string }[]>([]);
+  const [chatLog, setChatLog] = useState<
+    { question: string; response: string }[]
+  >([]);
 
-    const handleQuestionPress = (question: string) => {
-        const response = responses[question];
-        setChatLog([...chatLog, { question, response }]);
-    };
+  const handleQuestionPress = (question: string) => {
+    const response = responses[question];
+    setChatLog([...chatLog, { question, response }]);
+  };
 
-    return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Mental Health Chatbot</Text>
-            {/* options and response should be contextually appropriate based on  */}
-            {/* 1. Mood Tracker data  */}
-            {/* 2. Demographics */}
-            <ScrollView style={styles.chatLog} contentContainerStyle={styles.chatLogContent}>
-                {chatLog.map((log, index) => (
-                    <View key={index} style={styles.messageContainer}>
-                        <Text style={styles.userMessage}>You: {log.question}</Text> 
-                        <Text style={styles.botMessage}>Bot: {log.response}</Text>
-                    </View>
-                ))}
-            </ScrollView>
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Mental Health Chatbot</Text>
 
-            <View style={styles.buttonContainer}>
-                {questions.map((question, index) => (
-                    <TouchableOpacity
-                        key={index}
-                        style={styles.questionButton}
-                        onPress={() => handleQuestionPress(question)}
-                    >
-                        <Text style={styles.questionText}>{question}</Text>
-                    </TouchableOpacity>
-                ))}
-                {/* Extract frequent topic and send to database ('reports') */}
+      <ScrollView
+        style={styles.chatLog}
+        contentContainerStyle={styles.chatLogContent}
+      >
+        {chatLog.map((log, index) => (
+          <View key={index} style={styles.messageWrapper}>
+            <View style={styles.userMessageContainer}>
+              <Text style={styles.userMessage}>You: {log.question}</Text>
             </View>
-        </View>
-    );
+            <View style={styles.botMessageContainer}>
+              <Text style={styles.botMessage}>Bot: {log.response}</Text>
+            </View>
+          </View>
+        ))}
+      </ScrollView>
+
+      <View style={styles.buttonContainer}>
+        {questions.map((question, index) => (
+          <TouchableOpacity
+            key={index}
+            style={styles.questionButton}
+            onPress={() => handleQuestionPress(question)}
+            activeOpacity={0.7} // Smooth press effect
+          >
+            <Text style={styles.questionText}>{question}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
 };
 
 export default Chatbot;
@@ -57,14 +73,15 @@ export default Chatbot;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: "10%",
-    backgroundColor: "#F5F5F5",
+    padding: "7%",
+    backgroundColor: "#fff",
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 20,
+    color: "#000",
   },
   chatLog: {
     flex: 1,
@@ -73,50 +90,58 @@ const styles = StyleSheet.create({
   chatLogContent: {
     paddingVertical: 10,
   },
-  messageContainer: {
+  messageWrapper: {
     marginBottom: 15,
+  },
+  userMessageContainer: {
+    alignSelf: "flex-end",
+    backgroundColor: "#6ee7b7",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 5,
+    maxWidth: "75%",
+  },
+  botMessageContainer: {
+    alignSelf: "flex-start",
+    backgroundColor: "#ffffff",
+    padding: 12,
+    borderRadius: 12,
+    maxWidth: "75%",
+    borderColor: "#B0BEC5",
+    borderWidth: 1,
   },
   userMessage: {
     fontSize: 16,
-    color: "#333",
+    color: "#ffffff",
     fontWeight: "bold",
-    alignSelf: "flex-start",
-    marginBottom: 4,
   },
   botMessage: {
     fontSize: 16,
     color: "#333",
-    backgroundColor: "#E8E8E8",
-    padding: 10,
-    borderRadius: 10,
-    alignSelf: "flex-start",
   },
   buttonContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-around",
+    justifyContent: "center",
+    paddingTop: 10,
   },
   questionButton: {
     backgroundColor: "#6ee7b7",
-    padding: 12,
-    borderRadius: 8,
-    margin: 4,
-    width: "30%",
-    // Use flexbox to make the buttons horizontal
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "space-between", // Space buttons evenly
-    alignItems: "center", // Center text vertically
-    marginBottom: "1%",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    margin: 6,
+    width: "80%",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3, // Shadow effect for Android
   },
   questionText: {
     color: "white",
     fontWeight: "600",
-    textAlign: "center",
+    fontSize: 16,
   },
 });
-
-/* 
-1.
-2.     
-*/
