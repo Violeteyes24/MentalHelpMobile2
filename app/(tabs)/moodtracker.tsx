@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
-  Button,
   SafeAreaView,
   Alert,
   StyleSheet,
@@ -25,12 +24,12 @@ const EmotionAnalysis: React.FC = () => {
   });
 
   const emotionColors: { [key: string]: string } = {
-    Happy: "#FFFF00",
-    Afraid: "#0000FF",
-    Angry: "#FF0000",
-    Stressed: "#008000",
-    Confused: "#A52A2A",
-    Disappointed: "#FFA500",
+    Happy: "#FFD700", // Gold
+    Afraid: "#1E90FF", // Dodger Blue
+    Angry: "#FF4500", // Orange Red
+    Stressed: "#32CD32", // Lime Green
+    Confused: "#8B4513", // Saddle Brown
+    Disappointed: "#FFA500", // Orange
   };
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -44,7 +43,7 @@ const EmotionAnalysis: React.FC = () => {
     }));
   };
 
-  const widthAndHeight = 250;
+  const widthAndHeight = 280; // Increased for better visualization
 
   const series = Object.entries(emotions).map(([emotion, value]) => ({
     value: Math.min(10, Math.max(1, Math.round(value))),
@@ -87,52 +86,50 @@ const EmotionAnalysis: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, padding: 16 }}>
-      <Text style={{ fontSize: 24, fontWeight: "bold", textAlign: "center" }}>
-        Mood Tracker
-      </Text>
-
-      <Text style={{ fontSize: 18, textAlign: "center", marginVertical: 16 }}>
-        Swipe the slider for each emotion
+    <SafeAreaView style={styles.container}>
+      <Text style={styles.headerText}>Mood Tracker</Text>
+      <Text style={styles.subHeaderText}>
+        Adjust sliders to track your mood
       </Text>
 
       {Object.keys(emotions).map((emotion) => (
-        <View
-          key={emotion}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            marginVertical: 10,
-          }}
-        >
-          <Text style={{ width: 90, fontSize: 14 }}>{emotion}:</Text>
+        <View key={emotion} style={styles.sliderContainer}>
+          <Text
+            style={[styles.emotionLabel, { color: emotionColors[emotion] }]}
+          >
+            {emotion}
+          </Text>
           <Slider
-            style={{ width: 275 }}
+            style={styles.slider}
             minimumValue={1}
             maximumValue={10}
             value={emotions[emotion]}
             onValueChange={(value) => handleSliderChange(emotion, value)}
             thumbTintColor={emotionColors[emotion]}
             minimumTrackTintColor={emotionColors[emotion]}
-            maximumTrackTintColor="#000000"
+            maximumTrackTintColor="#ccc"
           />
+          <Text style={styles.valueText}>{Math.round(emotions[emotion])}</Text>
         </View>
       ))}
 
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <View style={styles.chartContainer}>
         <PieChart widthAndHeight={widthAndHeight} series={series} />
-        <View style={{ marginTop: "5%", alignItems: "center" }}>
-          <Button
-            title="See Results"
-            onPress={() => insertMoodTrackerData()}
-            color="#34d399"
-          />
-        </View>
       </View>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => insertMoodTrackerData()}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? "Saving..." : "See Results"}
+        </Text>
+      </TouchableOpacity>
 
       {/* Modal */}
       <Modal
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
@@ -141,7 +138,10 @@ const EmotionAnalysis: React.FC = () => {
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>Mood Tracker Results</Text>
             {Object.entries(emotions).map(([emotion, value]) => (
-              <Text key={emotion} style={styles.modalText}>
+              <Text
+                key={emotion}
+                style={[styles.modalText, { color: emotionColors[emotion] }]}
+              >
                 {emotion}: {Math.min(10, Math.max(1, Math.round(value)))}
               </Text>
             ))}
@@ -159,6 +159,64 @@ const EmotionAnalysis: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: "#f5f5f5",
+  },
+  headerText: {
+    fontSize: 26,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 8,
+    color: "#333",
+  },
+  subHeaderText: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 20,
+    color: "#666",
+  },
+  sliderContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    elevation: 3,
+    paddingVertical: 10,
+  },
+  emotionLabel: {
+    width: 90,
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  slider: {
+    flex: 1,
+  },
+  valueText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginLeft: 10,
+  },
+  chartContainer: {
+    marginTop: 20,
+    alignItems: "center",
+  },
+  button: {
+    backgroundColor: "#34d399",
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginVertical: 20,
+    alignItems: "center",
+    elevation: 3,
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
   modalBackground: {
     flex: 1,
     justifyContent: "center",
@@ -171,25 +229,31 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 20,
     alignItems: "center",
+    elevation: 5,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "bold",
     marginBottom: 10,
+    color: "#333",
   },
   modalText: {
-    fontSize: 16,
+    fontSize: 18,
     marginVertical: 5,
+    fontWeight: "bold",
   },
   closeButton: {
     marginTop: 20,
     backgroundColor: "#34d399",
     borderRadius: 5,
     padding: 10,
+    width: "80%",
+    alignItems: "center",
   },
   closeButtonText: {
     color: "white",
     fontWeight: "bold",
+    fontSize: 16,
   },
 });
 

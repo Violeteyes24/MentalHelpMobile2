@@ -17,10 +17,9 @@ export default function HomeScreen() {
 
   useEffect(() => {
     const getMoodData = async () => {
-      const data = await fetchLatestMoodTrackerData(); // Fetch latest mood data
-      setMoodData(data); // Update the state with the fetched data
+      const data = await fetchLatestMoodTrackerData();
+      setMoodData(data);
     };
-
     getMoodData();
   }, []);
 
@@ -45,12 +44,8 @@ export default function HomeScreen() {
 
   const screenWidth = Dimensions.get("window").width;
 
-  // Format radarChartData based on the documentation example
   const radarChartData = moodData
-    ? moodData.map((mood) => ({
-        label: mood.mood_type, // Mood type as label
-        value: mood.intensity, // Intensity as value
-      }))
+    ? moodData.map((mood) => ({ label: mood.mood_type, value: mood.intensity }))
     : [];
 
   const lineChartData = moodData
@@ -60,7 +55,7 @@ export default function HomeScreen() {
           {
             data: moodData.map((mood) => mood.intensity),
             color: (opacity = 1) => `rgba(75, 192, 192, ${opacity})`,
-            strokeWidth: 2,
+            strokeWidth: 3,
           },
         ],
       }
@@ -69,48 +64,42 @@ export default function HomeScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>
-        <Text style={styles.gradientText}>Mental</Text>
-        <Text style={styles.markedText}>Help</Text>
+        Mental<Text style={styles.highlight}>Help</Text>
       </Text>
       <Text style={styles.subtitle}>Your mental health companion</Text>
 
-      {/* Radar Chart */}
       {radarChartData.length > 0 && (
-        <View>
-          <Text style={styles.chartTitle}>Mood Distribution (Radar Chart)</Text>
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Mood Distribution</Text>
           <RadarChart
             data={radarChartData}
-            maxValue={5} // Set the maximum value (based on the mood intensity scale)
+            maxValue={5}
             gradientColor={{
-              startColor: "#34d399", // Customize gradient color
+              startColor: "#34d399",
               endColor: "#e1ede3",
               count: 5,
             }}
-            stroke={["#A3D9A5", "#68C48E", "#34D399", "#1C7F56", "#0B5A3B"]}// Customize strokes
-            strokeWidth={[0.5, 0.5, 0.5, 0.5, 1]} // Set stroke width
-            strokeOpacity={[1, 1, 1, 1, 0.13]} // Set stroke opacity
-            labelColor="#433D3A" // Set label color
-            dataFillColor="#34d399" // Set data fill color
-            dataFillOpacity={0.8} // Set data fill opacity
-            dataStroke="salmon" // Set data stroke color
-            dataStrokeWidth={2} // Set data stroke width
-            isCircle // Set the chart to be circular
+            stroke={["#A3D9A5", "#68C48E", "#34D399", "#1C7F56", "#0B5A3B"]}
+            strokeWidth={[1, 1, 1, 1, 1]}
+            strokeOpacity={[1, 1, 1, 1, 0.2]}
+            labelColor="#433D3A"
+            dataFillColor="#34d399"
+            dataFillOpacity={0.8}
+            dataStroke="salmon"
+            dataStrokeWidth={2}
+            // isCircle
           />
         </View>
       )}
 
-      {/* Line Chart */}
       {lineChartData && (
-        <View>
-          <Text style={styles.chartTitle}>
-            Mood Trends Over Time (Line Graph)
-          </Text>
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Mood Trends Over Time</Text>
           <LineChart
             data={lineChartData}
-            width={screenWidth - 30}
+            width={screenWidth - 40}
             height={250}
             chartConfig={{
-              backgroundColor: "#f9f9f9",
               backgroundGradientFrom: "#f9f9f9",
               backgroundGradientTo: "#f9f9f9",
               decimalPlaces: 1,
@@ -123,16 +112,18 @@ export default function HomeScreen() {
         </View>
       )}
 
-      <View>
+      <View style={styles.moodList}>
         {moodData && moodData.length > 0 ? (
           moodData.map((mood, index) => (
             <View key={index} style={styles.moodItem}>
-              <Text style={styles.moodText}>Mood Type: {mood.mood_type}</Text>
-              <Text style={styles.moodText}>Intensity: {mood.intensity}</Text>
+              <Text style={styles.moodText}>{mood.mood_type}</Text>
+              <Text style={styles.moodIntensity}>
+                Intensity: {mood.intensity}
+              </Text>
             </View>
           ))
         ) : (
-          <Text style={styles.moodText}>No mood data available</Text>
+          <Text style={styles.noDataText}>No mood data available</Text>
         )}
       </View>
     </ScrollView>
@@ -142,55 +133,75 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#f9f9f9",
     paddingVertical: 20,
-    paddingHorizontal: 10,
   },
   title: {
-    fontSize: 48,
-    fontWeight: "800",
+    fontSize: 42,
+    fontWeight: "bold",
     color: "#1f2937",
     textAlign: "center",
   },
-  gradientText: {
-    color: "#000",
-    backgroundColor: "transparent",
-  },
-  markedText: {
-    paddingHorizontal: 8,
+  highlight: {
     color: "#fff",
     backgroundColor: "#34d399",
-    borderRadius: 4,
+    borderRadius: 6,
+    paddingHorizontal: 8,
   },
   subtitle: {
     fontSize: 18,
     color: "#666",
-    marginBottom: 30,
+    marginBottom: 20,
     textAlign: "center",
+  },
+  chartContainer: {
+    width: "90%",
+    backgroundColor: "#fff",
+    padding: 15,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+    marginVertical: 10,
   },
   chartTitle: {
     fontSize: 18,
-    fontWeight: "700",
-    marginVertical: 10,
+    fontWeight: "bold",
+    marginBottom: 10,
     textAlign: "center",
     color: "#333",
   },
   chart: {
-    marginVertical: 10,
     borderRadius: 16,
+  },
+  moodList: {
+    width: "90%",
+  },
+  moodItem: {
+    backgroundColor: "#e0f2f1",
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 2,
   },
   moodText: {
     fontSize: 18,
-    marginTop: 10,
-    color: "black",
+    fontWeight: "bold",
+    color: "#1C7F56",
   },
-  moodItem: {
-    marginVertical: 10,
-    padding: 10,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 8,
-    width: "90%",
+  moodIntensity: {
+    fontSize: 16,
+    color: "#555",
+  },
+  noDataText: {
+    fontSize: 16,
+    color: "#999",
+    textAlign: "center",
+    marginTop: 10,
   },
 });
