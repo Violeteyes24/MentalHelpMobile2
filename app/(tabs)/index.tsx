@@ -14,14 +14,24 @@ export default function HomeScreen() {
   const { session } = useAuth();
   console.log(session);
   const [moodData, setMoodData] = useState<MoodData[] | null>(null);
+  const [name, setName] = useState("User");
 
   useEffect(() => {
     const getMoodData = async () => {
       const data = await fetchLatestMoodTrackerData();
       setMoodData(data);
     };
+
+    const getUserName = async () => {
+      const fetchedName = await fetchUserName();
+      setName(fetchedName);
+    };
+
     getMoodData();
-  }, []);
+    if (session?.user.id) {
+      getUserName();
+    }
+  }, [session?.user.id]); // Runs when user session changes
 
   async function fetchLatestMoodTrackerData(): Promise<MoodData[] | null> {
     let { data: mood_tracker, error } = await supabase
@@ -39,6 +49,21 @@ export default function HomeScreen() {
     } else {
       console.log("No mood tracker data found.");
       return null;
+    }
+  }
+
+  async function fetchUserName() {
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("name")
+      .eq("user_id", session?.user.id)
+      .single();
+
+    if (error) {
+      console.error("Error fetching user data:", error);
+      return "User"; // Default name if error occurs
+    } else {
+      return user.name;
     }
   }
 
@@ -67,6 +92,9 @@ export default function HomeScreen() {
         Mental<Text style={styles.highlight}>Help</Text>
       </Text>
       <Text style={styles.subtitle}>Your mental health companion</Text>
+      <Text style={styles.welcome}>
+        Welcome {name}! We're here to support you.
+      </Text>
 
       {radarChartData.length > 0 && (
         <View style={styles.chartContainer}>
@@ -87,7 +115,6 @@ export default function HomeScreen() {
             dataFillOpacity={0.8}
             dataStroke="salmon"
             dataStrokeWidth={2}
-            // isCircle
           />
         </View>
       )}
@@ -203,5 +230,11 @@ const styles = StyleSheet.create({
     color: "#999",
     textAlign: "center",
     marginTop: 10,
+  },
+  welcome: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#1C7F56",
+    textAlign: "center",
   },
 });
