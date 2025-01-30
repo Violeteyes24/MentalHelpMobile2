@@ -104,6 +104,14 @@ export default function TabLayout() {
             tabBarButton: () => null, // Hide from tab bar
           }}
         />
+
+        <Tabs.Screen
+          name="messaging/[id]"
+          options={{
+            title: "Messaging Details",
+            tabBarButton: () => null, // Hide from tab bar
+          }}
+        />
         {/* <Tabs.Screen name="../../app" /> */}
       </Tabs>
 
@@ -113,7 +121,7 @@ export default function TabLayout() {
         slideAnim={slideAnim}
         drawerOpen={drawerOpen}
         navigateToAccount={() => navigate("/(tabs)/account")}
-        navigateToMessages={() => navigate("/(tabs)/messages")}
+        navigateToMessages={() => navigate("/(tabs)/messageList")}
         navigateToNotifications={() => navigate("/(tabs)/notifications")}
         navigateToLogIn={() => router.replace("/")}
         // to do, log out.

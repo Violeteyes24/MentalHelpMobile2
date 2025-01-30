@@ -1,0 +1,16 @@
+SELECT m.message_id, m.sender_id, u1.user_type AS sender_role, 
+       m.receiver_id, u2.user_type AS receiver_role, 
+       m.message_content, m.sent_at, m.is_read
+FROM messages m
+JOIN users u1 ON m.sender_id = u1.user_id
+JOIN users u2 ON m.receiver_id = u2.user_id
+WHERE u1.user_type = 'counselor' AND u2.user_type = 'student'
+ORDER BY m.sent_at DESC;
+
+
+Role-based messaging restriction:
+
+if (sender.user_type === "student" && receiver.user_type !== "counselor") {
+    return res.status(403).json({ error: "Students can only message counselors." });
+}
+

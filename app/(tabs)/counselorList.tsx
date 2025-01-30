@@ -33,7 +33,7 @@ export default function CounselorList() {
 
     if (error) console.error(error);
     else setCounselors(data || []);
-    console.log("Data of Counselors:", JSON.stringify(data, null, 2)); // Pretty print the objects
+    // console.log("Data of Counselors:", JSON.stringify(data, null, 2)); // Pretty print the objects
     // is this the right console.log ? I don't understand why it is null, but on my app, it displays the counselor's name, and number, fetchcounselor is working correctly.
     setLoading(false);
   }
