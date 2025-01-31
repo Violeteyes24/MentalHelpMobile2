@@ -33,6 +33,33 @@ export default function Messages() {
 
   useEffect(() => {
     fetchMessages();
+
+    const allChannel = supabase.channel('custom-all-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages' },
+        (payload) => {
+          console.log('Change received!', payload);
+          fetchMessages(); // Refresh messages on any change
+        }
+      )
+      .subscribe();
+
+    const insertChannel = supabase.channel('custom-insert-channel')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          console.log('Insert received!', payload);
+          fetchMessages(); // Refresh messages on insert
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(allChannel);
+      supabase.removeChannel(insertChannel);
+    };
   }, [id]);
 
   async function fetchMessages() {
