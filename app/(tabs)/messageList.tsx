@@ -96,7 +96,10 @@ async function fetchConversations() {
   const renderItem = ({ item }: { item: Message }) => (
     <TouchableOpacity
       style={styles.itemContainer}
-      onPress={() => router.push(`/messaging/${item.user_id}`)} // Navigate to dynamic route
+      onPress={() => {
+        console.log(`Navigating to messaging page with user ID: ${item.user_id}`);
+        router.push(`/messaging/${item.user_id}`); // Navigate to dynamic route
+      }}
     >
       <Image
         source={{
