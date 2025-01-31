@@ -37,7 +37,7 @@ async function fetchConversations() {
     let { data, error } = await supabase
       .from("messages")
       .select(
-        "sender_id, receiver_id, sent_at, predefined_messages!inner(message_content)"
+        "*, predefined_messages(message_content)"
       )
       .or(`sender_id.eq.${currentUserId}, receiver_id.eq.${currentUserId}`)
       .order("sent_at", { ascending: false });
@@ -51,6 +51,7 @@ async function fetchConversations() {
       const uniqueConversations: { [key: string]: Message } = {};
 
       for (const msg of data) {
+        console.log('Message content:', msg.predefined_messages?.message_content);
         const otherUserId =
           msg.sender_id === currentUserId ? msg.receiver_id : msg.sender_id;
         if (!uniqueConversations[otherUserId]) {
@@ -58,7 +59,7 @@ async function fetchConversations() {
             user_id: otherUserId,
             name: "Unknown", // To be updated later
             message_content:
-               msg.predefined_messages?.[0]?.message_content ?? "No content",
+               msg.predefined_messages?.message_content ?? "No content",
           };
         }
       }

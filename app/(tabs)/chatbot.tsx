@@ -6,9 +6,9 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
-import { REACT_APP_OPENAI_API_KEY } from "../../.env"
+// import { REACT_APP_OPENAI_API_KEY } from "../../.env"
 
-console.log(REACT_APP_OPENAI_API_KEY);
+// console.log(REACT_APP_OPENAI_API_KEY);
 
 const questions = [
   "How are you feeling today?",
