@@ -26,7 +26,21 @@ export default function MessageList() {
 
   useEffect(() => {
     fetchConversations();
-    
+
+    const channels = supabase.channel('custom-all-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages' },
+        (payload) => {
+          console.log('Change received!', payload);
+          fetchConversations(); // Refetch conversations on any change
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channels);
+    };
   }, []);
 
 async function fetchConversations() {
@@ -90,8 +104,6 @@ async function fetchConversations() {
     setLoading(false);
   }
 }
-
-
 
   const renderItem = ({ item }: { item: Message }) => (
     <TouchableOpacity
