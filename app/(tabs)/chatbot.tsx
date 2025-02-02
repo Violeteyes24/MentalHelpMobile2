@@ -9,6 +9,12 @@ import {
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 import { Config } from "../../config/config";
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: Config.OPENAI_API_KEY,
+});
+console.log(Config.OPENAI_API_KEY);
 
 const Chatbot = () => {
   const { session } = useAuth();
@@ -49,7 +55,7 @@ const Chatbot = () => {
     if (error) {
       console.error("Error fetching chat log:", error);
     } else {
-      console.log("Fetched chat log:", data);
+      // console.log("Fetched chat log:", data);
       setChatLog(data || []);
     }
   }
@@ -64,7 +70,7 @@ const Chatbot = () => {
     if (error) {
       console.error("Error fetching user data:", error);
     } else {
-      console.log("Fetched user data:", data);
+      // console.log("Fetched user data:", data);
       setUserData(data);
     }
   }
@@ -81,7 +87,7 @@ const Chatbot = () => {
     if (error) {
       console.error("Error fetching mood data:", error);
     } else {
-      console.log("Fetched mood data:", data);
+      // console.log("Fetched mood data:", data);
       setMoodData(data);
     }
   }
@@ -94,7 +100,7 @@ const Chatbot = () => {
     if (error) {
       console.error("Error fetching questions:", error);
     } else {
-      console.log("Fetched questions:", data);
+      // console.log("Fetched questions:", data);
       setQuestions(
         data.map(
           (q: { chat_question_id: string; chatbot_question: string }) => ({
@@ -109,10 +115,11 @@ const Chatbot = () => {
   async function handleQuestionPress(question: string) {
     console.log("Question pressed:", question);
     const response = await generateResponse(question);
-    const newLog = { question, response };
+    const trimmedResponse = response.trim();
+    const newLog = { question, response: trimmedResponse };
 
     const questionId = questions.find((q) => q.question === question)?.id;
-    const answerId = await fetchAnswerId(response);
+    const answerId = await fetchAnswerId(trimmedResponse);
 
     if (!questionId || !answerId) {
       console.error("Question ID or Answer ID not found");
@@ -137,6 +144,7 @@ const Chatbot = () => {
       .from("chatbot_answers")
       .select("chat_answer_id")
       .eq("chatbot_answer", answer)
+      .limit(1) // ✅ Prevents multiple-row errors
       .single();
 
     if (error) {
@@ -144,7 +152,7 @@ const Chatbot = () => {
       return null;
     }
 
-    return data?.chat_answer_id;
+    return data ? data.chat_answer_id : null;
   }
 
   async function generateResponse(question: string) {
@@ -155,6 +163,9 @@ const Chatbot = () => {
       return "Sorry, I couldn't find an answer to your question.";
     }
 
+    let responseText = "";
+
+    // Fetch predefined answer
     const { data: predefinedAnswer, error } = await supabase
       .from("chatbot_answers")
       .select("chatbot_answer")
@@ -163,10 +174,12 @@ const Chatbot = () => {
 
     if (predefinedAnswer) {
       console.log("Fetched predefined answer:", predefinedAnswer);
-      return predefinedAnswer.chatbot_answer;
+      responseText += predefinedAnswer.chatbot_answer + " ";
     } else if (error) {
       console.log("No predefined answer found for question:", error);
     }
+
+    console.log("Proceeding to OpenAI API call");
 
     const prompt = `You are a mental health chat bot and is expected to assist the user. Please generate dynamic responses according to the data here: User Data: ${JSON.stringify(
       userData
@@ -174,21 +187,24 @@ const Chatbot = () => {
       moodData
     )}\nQuestion: ${question}\nResponse:`;
 
-    const response = await fetch("https://api.openai.com/v1/engines/davinci-codex/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        prompt,
-        max_tokens: 150,
-      }),
-    });
+    try {
+      console.log("Sending request to OpenAI with prompt:", prompt);
+      const stream = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [{ role: "user", content: prompt }],
+        stream: true,
+      });
 
-    const data = await response.json();
-    console.log("Generated response from OpenAI:", data.choices[0].text.trim());
-    return data.choices[0].text.trim();
+      for await (const chunk of stream) {
+        responseText += chunk.choices[0]?.delta?.content || "";
+      }
+
+      console.log("Generated response from OpenAI:", responseText.trim());
+      return responseText.trim();
+    } catch (err) {
+      console.error("Error generating response from OpenAI:", err);
+      return responseText.trim() + " Sorry, there was an error generating a dynamic response.";
+    }
   }
 
   return (
@@ -278,6 +294,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3, // Shadow effect for Android
   },
+
   questionText: {
     color: "white",
     fontWeight: "600",
