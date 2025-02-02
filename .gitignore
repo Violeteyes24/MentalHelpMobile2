@@ -32,6 +32,7 @@ yarn-error.*
 # local env files
 .env
 .env*.local
++ config/config.ts  # Ignore the config file containing sensitive API keys
 
 # typescript
 *.tsbuildinfo
