@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
+import { Config } from "../../config/config";
 
 const Chatbot = () => {
   const { session } = useAuth();
