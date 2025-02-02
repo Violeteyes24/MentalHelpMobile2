@@ -9,9 +9,6 @@ import {
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 
-const OPENAI_API_KEY =
-  "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";
-
 const Chatbot = () => {
   const { session } = useAuth();
   const [chatLog, setChatLog] = useState<
@@ -180,7 +177,7 @@ const Chatbot = () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        // Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
         prompt,
