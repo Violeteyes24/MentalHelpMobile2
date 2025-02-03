@@ -22,16 +22,33 @@ export default function HomeScreen() {
       setMoodData(data);
     };
 
-    const getUserName = async () => {
-      const fetchedName = await fetchUserName();
-      setName(fetchedName);
-    };
-
     getMoodData();
-    if (session?.user.id) {
-      getUserName();
-    }
+
+    const channel = supabase.channel('custom-all-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'mood_tracker' },
+        (payload) => {
+          console.log('Change received!', payload);
+          getMoodData(); // Refetch mood data on any change
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription on unmount
+    return () => {
+      channel.unsubscribe();
+    };
   }, [session?.user.id]); // Runs when user session changes
+
+  const getUserName = async () => {
+    const fetchedName = await fetchUserName();
+    setName(fetchedName);
+  };
+
+  if (session?.user.id) {
+    getUserName();
+  }
 
   async function fetchLatestMoodTrackerData(): Promise<MoodData[] | null> {
     let { data: mood_tracker, error } = await supabase
