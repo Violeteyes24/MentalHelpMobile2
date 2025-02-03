@@ -55,7 +55,7 @@ const Chatbot = () => {
     if (error) {
       console.error("Error fetching chat log:", error);
     } else {
-      // console.log("Fetched chat log:", data);
+      console.log("Fetched chat log:", data);
       setChatLog(data || []);
     }
   }
@@ -121,10 +121,17 @@ const Chatbot = () => {
     const questionId = questions.find((q) => q.question === question)?.id;
     const answerId = await fetchAnswerId(trimmedResponse);
 
-    if (!questionId || !answerId) {
-      console.error("Question ID or Answer ID not found");
+    if (!questionId) {
+      console.error("Question ID not found for question:", question);
       return;
     }
+
+    if (!answerId) {
+      console.error("Answer ID not found for response:", trimmedResponse);
+      return;
+    }
+
+    console.log("Question ID:", questionId, "Answer ID:", answerId);
 
     const { error } = await supabase.from("chatbot").insert([
       {
@@ -144,15 +151,19 @@ const Chatbot = () => {
       .from("chatbot_answers")
       .select("chat_answer_id")
       .eq("chatbot_answer", answer)
-      .limit(1) // ✅ Prevents multiple-row errors
       .single();
 
-    if (error) {
+    if (error && error.code !== "PGRST116") {
       console.error("Error fetching answer ID:", error);
       return null;
     }
 
-    return data ? data.chat_answer_id : null;
+    if (!data) {
+      console.error("No answer ID found for answer:", answer);
+      return null;
+    }
+
+    return data.chat_answer_id;
   }
 
   async function generateResponse(question: string) {
@@ -175,7 +186,7 @@ const Chatbot = () => {
     if (predefinedAnswer) {
       console.log("Fetched predefined answer:", predefinedAnswer);
       responseText += predefinedAnswer.chatbot_answer + " ";
-    } else if (error) {
+    } else if (error && error.code !== "PGRST116") {
       console.log("No predefined answer found for question:", error);
     }
 
@@ -189,15 +200,12 @@ const Chatbot = () => {
 
     try {
       console.log("Sending request to OpenAI with prompt:", prompt);
-      const stream = await openai.chat.completions.create({
+      const response = await openai.chat.completions.create({
         model: "gpt-4",
         messages: [{ role: "user", content: prompt }],
-        stream: true,
       });
 
-      for await (const chunk of stream) {
-        responseText += chunk.choices[0]?.delta?.content || "";
-      }
+      responseText += response.choices[0]?.message?.content || "";
 
       console.log("Generated response from OpenAI:", responseText.trim());
       return responseText.trim();
