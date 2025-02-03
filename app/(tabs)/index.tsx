@@ -54,6 +54,7 @@ export default function HomeScreen() {
     let { data: mood_tracker, error } = await supabase
       .from("mood_tracker")
       .select("mood_type, intensity")
+      .eq("user_id", session?.user.id)
       .order("tracked_at", { ascending: false })
       .limit(6);
 
