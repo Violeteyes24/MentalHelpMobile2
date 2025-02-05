@@ -12,7 +12,7 @@ interface MoodData {
 
 export default function HomeScreen() {
   const { session } = useAuth();
-  console.log(session);
+  // console.log(session);
   const [moodData, setMoodData] = useState<MoodData[] | null>(null);
   const [name, setName] = useState("User");
 
@@ -62,7 +62,7 @@ export default function HomeScreen() {
       console.error("Error fetching mood tracker data:", error);
       return null;
     } else if (mood_tracker && mood_tracker.length > 0) {
-      console.log("Latest mood data:", mood_tracker);
+      // console.log("Latest mood data:", mood_tracker);
       return mood_tracker;
     } else {
       console.log("No mood tracker data found.");

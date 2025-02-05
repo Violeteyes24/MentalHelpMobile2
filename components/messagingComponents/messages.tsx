@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../context/AuthContext";
 
 interface Message {
   message_id: string;
@@ -30,39 +31,30 @@ export default function Messages() {
   const { id } = useLocalSearchParams(); // Get selected user ID from the route
   const [messages, setMessages] = useState<Message[]>([]);
   const [predefinedOptions, setPredefinedOptions] = useState<PredefinedMessage[]>([]);
+  const { session } = useAuth();
 
-  useEffect(() => {
-    console.log("useEffect called with id:", id);
-    fetchMessages();
-    
-    const allChannel = supabase.channel('custom-all-channel')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'messages' },
-        (payload) => {
-          console.log('Change received!', payload);
-          fetchMessages(); // Refresh messages on any change
-        }
-      )
-      .subscribe();
+useEffect(() => {
+  console.log("useEffect triggered with id:", id);
+  fetchMessages();
+  fetchPredefinedOptions(); // Ensure this runs on component mount
 
-    const insertChannel = supabase.channel('custom-insert-channel')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
-          console.log('Insert received!', payload);
-          fetchMessages(); // Refresh messages on insert
-        }
-      )
-      .subscribe();
+  const allChannel = supabase
+    .channel("custom-all-channel")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "messages" },
+      (payload) => {
+        console.log("Change received!", payload);
+        fetchMessages();
+      }
+    )
+    .subscribe();
 
-    return () => {
-      console.log("Cleaning up channels");
-      supabase.removeChannel(allChannel);
-      supabase.removeChannel(insertChannel);
-    };
-  }, [id]);
+  return () => {
+    supabase.removeChannel(allChannel);
+  };
+}, [id]);
+
 
   async function fetchMessages() {
     if (!id) {
@@ -70,49 +62,74 @@ export default function Messages() {
       return;
     }
 
-    console.log("Fetching messages for ID:", id);
-
+    // console.log("Fetching messages for ID:", id);
+    const currentUserId = session?.user.id;
     // Fetch conversation between logged-in user and the selected user
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("messages")
-      .select("*, predefined_messages(message_content)")
-      .or(`sender_id.eq.${id},receiver_id.eq.${id}`)
-      .order("sent_at", { ascending: true });
+      .select(
+        `
+                    sender_id,
+                    receiver_id,
+                    sent_at,
+                    predefined_messages (
+                        message_content
+                    )
+                `
+      )
+      .or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`)
+      .order("sent_at", { ascending: false });
 
     if (error) {
       console.error("Error fetching messages:", error);
     } else {
-      console.log("this is the messages.tsx and this is the data of fetchMessages function", data);
-      setMessages(data || []);
+      // console.log("this is the messages.tsx and this is the data of fetchMessages function", data);
+      const formattedMessages =
+        data?.map((msg: any) => ({
+          message_id: msg.message_id || Math.random().toString(), // Ensure a unique key if message_id is missing
+          sender_id: msg.sender_id,
+          receiver_id: msg.receiver_id,
+          message_content:
+            msg.predefined_messages?.message_content || "No content available", // Fallback for null values
+          sent_at: msg.sent_at,
+        })) || [];
+
+      setMessages(formattedMessages || []);
       fetchPredefinedOptions();
     }
   }
 
-  async function fetchPredefinedOptions() {
-    console.log("Fetching predefined options");
-    // Fetch predefined options for the current conversation
-    const { data, error } = await supabase
-      .from("predefined_messages")
-      .select("*")
-      .limit(2); // Limit to 2 for testing purposes
+ async function fetchPredefinedOptions() {
+   console.log("Fetching predefined options");
+   const { data, error } = await supabase
+     .from("predefined_messages")
+     .select("*")
+     .limit(2);
 
-    if (error) {
-      console.error("Error fetching predefined messages:", error);
-    } else {
-      console.log("Fetched predefined options:", data);
-      setPredefinedOptions(data || []);
-    }
-  }
+   if (error) {
+     console.error("Error fetching predefined messages:", error);
+   } else {
+     console.log("Fetched predefined options:", data);
+     setPredefinedOptions(data || []);
+     console.log("Updated predefinedOptions state:", predefinedOptions); // This might still log an empty array due to async nature
+   }
+ }
 
   async function sendMessage(selectedMessage: PredefinedMessage) {
     console.log("Sending message:", selectedMessage);
     // Insert new message into the database
     const { error } = await supabase.from("messages").insert([
       {
-        sender_id: id, // User selecting the message
-        receiver_id: id, // Assuming a predefined flow
-        message_content: selectedMessage.message_text,
+        sender_id: session?.user.id, // User selecting the message
+        receiver_id: id, // Send to the selected user
         sent_at: new Date().toISOString(),
+        received_at: null,
+        is_read: false,
+        conversation_id: null,
+        message_type: "text",
+        read_at: null,
+        is_delivered: false,
+        message_content_id: selectedMessage.id, // Use message_content_id instead of message_content
       },
     ]);
 
