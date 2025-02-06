@@ -26,17 +26,19 @@ interface PredefinedMessage {
 }
 
 export default function Messages() {
-  console.log("Messages component is rendered");
+  // console.log("Messages component is rendered");
 
   const { id } = useLocalSearchParams(); // Get selected user ID from the route
   const [messages, setMessages] = useState<Message[]>([]);
   const [predefinedOptions, setPredefinedOptions] = useState<PredefinedMessage[]>([]);
   const { session } = useAuth();
+  const [userName, setUserName] = useState<string | null>(null);
 
 useEffect(() => {
   console.log("useEffect triggered with id:", id);
   fetchMessages();
   fetchPredefinedOptions(); // Ensure this runs on component mount
+  fetchUserName(); // Fetch the user's name
 
   const allChannel = supabase
     .channel("custom-all-channel")
@@ -56,51 +58,54 @@ useEffect(() => {
 }, [id]);
 
 
-  async function fetchMessages() {
-    if (!id) {
-      console.log("No ID found");
-      return;
-    }
-
-    // console.log("Fetching messages for ID:", id);
-    const currentUserId = session?.user.id;
-    // Fetch conversation between logged-in user and the selected user
-    let { data, error } = await supabase
-      .from("messages")
-      .select(
-        `
-                    sender_id,
-                    receiver_id,
-                    sent_at,
-                    predefined_messages (
-                        message_content
-                    )
-                `
-      )
-      .or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`)
-      .order("sent_at", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching messages:", error);
-    } else {
-      // console.log("this is the messages.tsx and this is the data of fetchMessages function", data);
-      const formattedMessages =
-        data?.map((msg: any) => ({
-          message_id: msg.message_id || Math.random().toString(), // Ensure a unique key if message_id is missing
-          sender_id: msg.sender_id,
-          receiver_id: msg.receiver_id,
-          message_content:
-            msg.predefined_messages?.message_content || "No content available", // Fallback for null values
-          sent_at: msg.sent_at,
-        })) || [];
-
-      setMessages(formattedMessages || []);
-      fetchPredefinedOptions();
-    }
+async function fetchMessages() {
+  if (!id) {
+    console.log("No ID found");
+    return;
   }
 
+  console.log("Fetching messages for ID:", id);
+  // const currentUserId = session?.user.id;
+  // const currentChatMate = id;
+  // Fetch conversation between logged-in user and the selected user
+  let { data, error } = await supabase
+    .from("messages")
+    .select(
+      `
+        message_id,
+        sender_id,
+        receiver_id,
+        sent_at,
+        predefined_messages (
+          message_content
+        )
+      `
+    )
+    // .eq("sender_id, receiver_id", id, session?.user.id)
+    .or(`sender_id.eq.${session?.user.id},receiver_id.eq.${session?.user.id}`)
+    .order("sent_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching messages:", error);
+  } else {
+    console.log("this is the messages.tsx and this is the data of fetchMessages function", data);
+    const formattedMessages =
+      data?.map((msg: any) => ({
+        message_id: msg.message_id || Math.random().toString(), // Ensure a unique key if message_id is missing
+        sender_id: msg.sender_id,
+        receiver_id: msg.receiver_id,
+        message_content:
+          msg.predefined_messages!.message_content || "No content available", // Fallback for null values
+        sent_at: msg.sent_at,
+      })) || [];
+
+    setMessages(formattedMessages || []);
+    fetchPredefinedOptions();
+  }
+}
+
  async function fetchPredefinedOptions() {
-   console.log("Fetching predefined options");
+  //  console.log("Fetching predefined options");
    const { data, error } = await supabase
      .from("predefined_messages")
      .select("*")
@@ -109,11 +114,30 @@ useEffect(() => {
    if (error) {
      console.error("Error fetching predefined messages:", error);
    } else {
-     console.log("Fetched predefined options:", data);
+    //  console.log("Fetched predefined options:", data);
      setPredefinedOptions(data || []);
      console.log("Updated predefinedOptions state:", predefinedOptions); // This might still log an empty array due to async nature
    }
  }
+
+ async function fetchUserName() {
+  if (!id) {
+    console.log("No ID found");
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("users") // Assuming the table name is 'users'
+    .select("name")
+    .eq("user_id", id)
+    .single();
+
+  if (error) {
+    console.error("Error fetching user name:", error);
+  } else {
+    setUserName(data?.name || "Unknown User");
+  }
+}
 
   async function sendMessage(selectedMessage: PredefinedMessage) {
     console.log("Sending message:", selectedMessage);
@@ -160,6 +184,7 @@ useEffect(() => {
 
   return (
     <View style={styles.container}>
+      <Text style={styles.name}>Messages from: {userName}</Text>
       <FlatList
         data={messages}
         renderItem={renderMessage}
@@ -168,9 +193,9 @@ useEffect(() => {
       />
 
       <View style={styles.optionsContainer}>
-        {predefinedOptions.map((option) => (
+        {predefinedOptions.map((option, index) => (
           <TouchableOpacity
-            key={option.id}
+            key={index}
             style={styles.optionButton}
             onPress={() => sendMessage(option)}
           >
@@ -212,4 +237,11 @@ const styles = StyleSheet.create({
     marginVertical: 5,
   },
   optionText: { color: "#fff", textAlign: "center" },
+  name: {
+    marginTop: "10%",
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
+  },
 });
