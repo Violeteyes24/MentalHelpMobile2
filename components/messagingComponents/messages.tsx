@@ -59,51 +59,38 @@ useEffect(() => {
 
 
 async function fetchMessages() {
-  if (!id) {
+  if (!id || !session?.user.id) {
     console.log("No ID found");
     return;
   }
 
-  console.log("Fetching messages for ID:", id);
-  // const currentUserId = session?.user.id;
-  // const currentChatMate = id;
-  // Fetch conversation between logged-in user and the selected user
   let { data, error } = await supabase
     .from("messages")
-    .select(
-      `
-        message_id,
-        sender_id,
-        receiver_id,
-        sent_at,
-        predefined_messages (
-          message_content
-        )
-      `
+    .select(`
+      message_id,
+      sender_id,
+      receiver_id,
+      sent_at,
+      message_content_id,
+      predefined_messages!message_content_id(*)
+    `)
+    .or(
+      `and(sender_id.eq.${session.user.id},receiver_id.eq.${id}),and(sender_id.eq.${id},receiver_id.eq.${session.user.id})`
     )
-    // .eq("sender_id, receiver_id", id, session?.user.id)
-    .or(`sender_id.eq.${session?.user.id},receiver_id.eq.${session?.user.id}`)
     .order("sent_at", { ascending: false });
 
-  if (error) {
-    console.error("Error fetching messages:", error);
-  } else {
-    console.log("this is the messages.tsx and this is the data of fetchMessages function", data);
-    const formattedMessages =
-      data?.map((msg: any) => ({
-        message_id: msg.message_id || Math.random().toString(), // Ensure a unique key if message_id is missing
-        sender_id: msg.sender_id,
-        receiver_id: msg.receiver_id,
-        message_content:
-          msg.predefined_messages!.message_content || "No content available", // Fallback for null values
-        sent_at: msg.sent_at,
-      })) || [];
+  console.log("Raw messages:", data);
 
-    setMessages(formattedMessages || []);
-    fetchPredefinedOptions();
-  }
+  const formattedMessages = (data || []).map((msg: any) => ({
+    message_id: msg.message_id,
+    sender_id: msg.sender_id,
+    receiver_id: msg.receiver_id,
+    message_content: msg.predefined_messages?.message_content || "Message content not found",
+    sent_at: msg.sent_at,
+  }));
+
+  setMessages(formattedMessages);
 }
-
  async function fetchPredefinedOptions() {
   //  console.log("Fetching predefined options");
    const { data, error } = await supabase
