@@ -12,6 +12,7 @@ import { Calendar } from "react-native-calendars";
 import { createClient } from "@supabase/supabase-js";
 import { Icon } from "@rneui/themed";
 import { useAuth } from "../../context/AuthContext";
+import ReasonModal from './ReasonModal'; // Import ReasonModal
 
 const supabase = createClient(
   "https://ybpoanqhkokhdqucwchy.supabase.co",
@@ -27,6 +28,8 @@ export default function AvailabilityCalendar({
   const [selectedDate, setSelectedDate] = useState("");
   const [counselorDetails, setCounselorDetails] = useState<any>(null);
   const { session } = useAuth();
+  const [isModalVisible, setIsModalVisible] = useState(false); // State for modal visibility
+  const [selectedSlot, setSelectedSlot] = useState<any>(null); // State for selected slot
 
   useEffect(() => {
     if (selectedDate) {
@@ -80,66 +83,58 @@ export default function AvailabilityCalendar({
     fetchAvailability();
   };
 
-async function handleBooking(slot: any) {
-  Alert.alert(
-    "Confirm Booking", // Title
-    `Do you want to book the slot: ${slot.start_time} - ${slot.end_time}?`, // Message
-    [
-      {
-        text: "Cancel",
-        style: "cancel",
-        onPress: () => console.log("Booking canceled"), // Optional: Log or take action
-      },
-      {
-        text: "Confirm",
-        onPress: async () => {
-          console.log("Booking slot:", slot);
-          // Proceed with booking logic
-          const { data, error } = await supabase
-            .from("availability_schedules")
-            .update({ is_available: false })
-            .eq("counselor_id", counselorId)
-            .eq("availability_schedule_id", slot.availability_schedule_id)
-            .select();
+  async function handleBooking(slot: any) {
+    setSelectedSlot(slot); // Set the selected slot
+    setIsModalVisible(true); // Show the modal
+  }
 
-          if (error) {
-            console.error("Error updating availability:", error);
-            Alert.alert("Error", "Failed to book the slot. Please try again.");
+  async function handleConfirm(reason: string) {
+    setIsModalVisible(false); // Hide the modal
+    if (selectedSlot) {
+      const slot = selectedSlot;
+      console.log("Booking slot:", slot);
+      // Proceed with booking logic
+      const { data, error } = await supabase
+        .from("availability_schedules")
+        .update({ is_available: false })
+        .eq("counselor_id", counselorId)
+        .eq("availability_schedule_id", slot.availability_schedule_id)
+        .select();
+
+      if (error) {
+        console.error("Error updating availability:", error);
+        Alert.alert("Error", "Failed to book the slot. Please try again.");
+      } else {
+        console.log("Availability updated successfully:", data);
+        if (data) { // Check if the availability update was successful
+          // Insert new appointment into the appointments table
+          const { data: appointmentData, error: appointmentError } = await supabase
+            .from("appointments")
+            .insert([
+              {
+                user_id: session?.user.id, // Assuming you have the user's session
+                counselor_id: counselorId,
+                availability_schedule_id: slot.availability_schedule_id,
+                appointment_type: "individual", // Example appointment type
+                reason: reason, // Add the reason for the appointment
+              },
+            ]);
+
+          if (appointmentError) {
+            console.log("Error creating appointment:", appointmentError);
+            Alert.alert("Error", "Failed to create the appointment. Please try again.");
           } else {
-            console.log("Availability updated successfully:", data);
-            if (data) { // Check if the availability update was successful
-              // Insert new appointment into the appointments table
-              const { data: appointmentData, error: appointmentError } = await supabase
-                .from("appointments")
-                .insert([
-                  {
-                    user_id: session?.user.id, // Assuming you have the user's session
-                    counselor_id: counselorId,
-                    availability_schedule_id: slot.availability_schedule_id,
-                    appointment_type: "individual", // Example appointment type
-                  },
-                ]);
-
-              if (appointmentError) {
-                console.log("Error creating appointment:", appointmentError);
-                Alert.alert("Error", "Failed to create the appointment. Please try again.");
-              } else {
-                console.log("Appointment created successfully:", appointmentData);
-                Alert.alert(
-                  "Success",
-                  `You successfully booked the slot: ${slot.start_time} - ${slot.end_time}`
-                );
-                fetchAvailability(); // Refresh availability after booking
-              }
-            }
+            console.log("Appointment created successfully:", appointmentData);
+            Alert.alert(
+              "Success",
+              `You successfully booked the slot: ${slot.start_time} - ${slot.end_time}`
+            );
+            fetchAvailability(); // Refresh availability after booking
           }
-        },
-      },
-    ],
-    { cancelable: true } // Allow dismissal by tapping outside
-  );
-}
-
+        }
+      }
+    }
+  }
 
   const convertTo12Hour = (time: string) => {
     const [hours, minutes] = time.split(":").map(Number); // Split hours and minutes
@@ -199,13 +194,20 @@ async function handleBooking(slot: any) {
   );
 
   return (
-    <FlatList
-      data={availability}
-      keyExtractor={(item) => item.availability_schedule_id}
-      renderItem={renderSlot}
-      ListHeaderComponent={renderHeader}
-      contentContainerStyle={styles.container}
-    />
+    <>
+      <FlatList
+        data={availability}
+        keyExtractor={(item) => item.availability_schedule_id}
+        renderItem={renderSlot}
+        ListHeaderComponent={renderHeader}
+        contentContainerStyle={styles.container}
+      />
+      <ReasonModal
+        visible={isModalVisible}
+        onClose={() => setIsModalVisible(false)}
+        onConfirm={handleConfirm}
+      />
+    </>
   );
 }
 
