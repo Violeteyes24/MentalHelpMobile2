@@ -88,7 +88,7 @@ export default function AvailabilityCalendar({
     setIsModalVisible(true); // Show the modal
   }
 
-  async function handleConfirm(reason: string) {
+  async function handleConfirm(reason: string, isGroupEligible: boolean) {
     setIsModalVisible(false); // Hide the modal
     if (selectedSlot) {
       const slot = selectedSlot;
@@ -117,6 +117,7 @@ export default function AvailabilityCalendar({
                 availability_schedule_id: slot.availability_schedule_id,
                 appointment_type: "individual", // Example appointment type
                 reason: reason, // Add the reason for the appointment
+                is_group_eligible: isGroupEligible, // Add group eligibility
               },
             ]);
 
