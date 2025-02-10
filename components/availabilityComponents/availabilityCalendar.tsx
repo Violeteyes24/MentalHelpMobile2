@@ -11,6 +11,7 @@ import {
 import { Calendar } from "react-native-calendars";
 import { createClient } from "@supabase/supabase-js";
 import { Icon } from "@rneui/themed";
+import { useAuth } from "../../context/AuthContext";
 
 const supabase = createClient(
   "https://ybpoanqhkokhdqucwchy.supabase.co",
@@ -25,10 +26,31 @@ export default function AvailabilityCalendar({
   const [availability, setAvailability] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState("");
   const [counselorDetails, setCounselorDetails] = useState<any>(null);
+  const { session } = useAuth();
 
   useEffect(() => {
-    fetchAvailability();
+    if (selectedDate) {
+      fetchAvailability();
+    }
     fetchCounselorDetails();
+
+    const appointmentChannel = supabase
+      .channel("custom-appointments-channel")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "appointments" },
+        (payload) => {
+          console.log("Appointment change received!", payload);
+          if (selectedDate) {
+            fetchAvailability(); // Refresh availability when an appointment is made
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(appointmentChannel);
+    };
   }, [selectedDate]);
 
   async function fetchAvailability() {
@@ -53,7 +75,10 @@ export default function AvailabilityCalendar({
     else setCounselorDetails(data);
   }
 
-  const handleDayPress = (day: any) => setSelectedDate(day.dateString);
+  const handleDayPress = (day: any) => {
+    setSelectedDate(day.dateString);
+    fetchAvailability();
+  };
 
 async function handleBooking(slot: any) {
   Alert.alert(
@@ -82,10 +107,31 @@ async function handleBooking(slot: any) {
             Alert.alert("Error", "Failed to book the slot. Please try again.");
           } else {
             console.log("Availability updated successfully:", data);
-            Alert.alert(
-              "Success",
-              `You successfully booked the slot: ${slot.start_time} - ${slot.end_time}`
-            );
+            if (data) { // Check if the availability update was successful
+              // Insert new appointment into the appointments table
+              const { data: appointmentData, error: appointmentError } = await supabase
+                .from("appointments")
+                .insert([
+                  {
+                    user_id: session?.user.id, // Assuming you have the user's session
+                    counselor_id: counselorId,
+                    availability_schedule_id: slot.availability_schedule_id,
+                    appointment_type: "individual", // Example appointment type
+                  },
+                ]);
+
+              if (appointmentError) {
+                console.log("Error creating appointment:", appointmentError);
+                Alert.alert("Error", "Failed to create the appointment. Please try again.");
+              } else {
+                console.log("Appointment created successfully:", appointmentData);
+                Alert.alert(
+                  "Success",
+                  `You successfully booked the slot: ${slot.start_time} - ${slot.end_time}`
+                );
+                fetchAvailability(); // Refresh availability after booking
+              }
+            }
           }
         },
       },
