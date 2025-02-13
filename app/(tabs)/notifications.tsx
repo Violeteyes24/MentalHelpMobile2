@@ -13,6 +13,9 @@ interface Notification {
   user_id: string;
   notification_content: string;
   sent_at: string;
+  user: {
+    name: string;
+  };
 }
 
 const NotificationUI: React.FC = () => {
@@ -25,7 +28,13 @@ const NotificationUI: React.FC = () => {
   const fetchNotifications = async () => {
     const { data, error } = await supabase
       .from('notifications')
-      .select('*')
+      .select(`
+        notification_id,
+        user_id,
+        notification_content,
+        sent_at,
+        user:users(name)
+      `)
       .eq('user_id', session?.user.id)
       .order('sent_at', { ascending: false });
 
@@ -41,7 +50,7 @@ const NotificationUI: React.FC = () => {
     return (
       <TouchableOpacity style={styles.messageContainer}>
         <View style={styles.messageContent}>
-          <Text style={styles.sender}>{item.user_id}</Text>
+          <Text style={styles.sender}>{item.user?.name || 'Unknown'}</Text>
           <Text style={styles.messageText}>{item.notification_content}</Text>
         </View>
         <Text style={styles.time}>{new Date(item.sent_at).toLocaleTimeString()}</Text>
