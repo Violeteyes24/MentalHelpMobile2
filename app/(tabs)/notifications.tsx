@@ -1,44 +1,65 @@
-import React from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { createClient } from '@supabase/supabase-js';
+import { useAuth } from "../../context/AuthContext";
 
-interface Message {
-    id: string;
-    sender: string;
-    text: string;
-    time: string;
+const supabase = createClient(
+  "https://ybpoanqhkokhdqucwchy.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlicG9hbnFoa29raGRxdWN3Y2h5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ0MDg2MTUsImV4cCI6MjA0OTk4NDYxNX0.pxmpPITVIItZ_pcChUmmx06C8CkMfg5E80ukMGfPZkU"
+);
+
+interface Notification {
+  notification_id: string;
+  user_id: string;
+  notification_content: string;
+  sent_at: string;
 }
 
-const messages: Message[] = [
-    { id: '1', sender: 'John Doe', text: 'Hey, I just sent you the file.', time: '10:05 AM' },
-    { id: '2', sender: 'Jane Smith', text: 'Can you review the report?', time: '10:15 AM' },
-    { id: '3', sender: 'John Doe', text: 'Sure, I will do it shortly!', time: '10:20 AM' },
-    { id: '4', sender: 'Jane Smith', text: 'Thanks!', time: '10:30 AM' },
-];
-
 const NotificationUI: React.FC = () => {
-    const renderItem = ({ item }: { item: Message }) => {
-        return (
-            <TouchableOpacity style={styles.messageContainer}>
-                <View style={styles.messageContent}>
-                    <Text style={styles.sender}>{item.sender}</Text>
-                    <Text style={styles.messageText}>{item.text}</Text>
-                </View>
-                <Text style={styles.time}>{item.time}</Text>
-            </TouchableOpacity>
-        );
-    };
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const { session } = useAuth();
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
 
+  const fetchNotifications = async () => {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', session?.user.id)
+      .order('sent_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching notifications:', error);
+      Alert.alert('Error', 'Failed to fetch notifications. Please try again.');
+    } else {
+      setNotifications(data || []);
+    }
+  };
+
+  const renderItem = ({ item }: { item: Notification }) => {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Notifications</Text>
-        <FlatList
-          data={messages}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.messageList}
-        />
-      </View>
+      <TouchableOpacity style={styles.messageContainer}>
+        <View style={styles.messageContent}>
+          <Text style={styles.sender}>{item.user_id}</Text>
+          <Text style={styles.messageText}>{item.notification_content}</Text>
+        </View>
+        <Text style={styles.time}>{new Date(item.sent_at).toLocaleTimeString()}</Text>
+      </TouchableOpacity>
     );
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Notifications</Text>
+      <FlatList
+        data={notifications}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.notification_id}
+        contentContainerStyle={styles.messageList}
+      />
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
