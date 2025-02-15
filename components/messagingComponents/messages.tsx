@@ -14,14 +14,13 @@ import { useAuth } from "../../context/AuthContext";
 interface Message {
   message_id: string;
   sender_id: string;
-  receiver_id: string;
   message_content: string;
   sent_at: string;
 }
 
 interface PredefinedMessage {
   id: string;
-  message_text: string;
+  message_content: string;
   next_message_id: string | null;
 }
 
@@ -34,6 +33,8 @@ export default function Messages() {
   const { session } = useAuth();
   const [userName, setUserName] = useState<string | null>(null);
 
+  console.log("Current user ID:", session?.user.id);
+  console.log("page id: ", id);
 useEffect(() => {
   console.log("useEffect triggered with id:", id);
   fetchMessages();
@@ -69,14 +70,10 @@ async function fetchMessages() {
     .select(`
       message_id,
       sender_id,
-      receiver_id,
       sent_at,
-      message_content_id,
-      predefined_messages!message_content_id(*)
+      message_content
     `)
-    .or(
-      `and(sender_id.eq.${session.user.id},receiver_id.eq.${id}),and(sender_id.eq.${id},receiver_id.eq.${session.user.id})`
-    )
+    .eq("conversation_id", id)
     .order("sent_at", { ascending: false });
 
   console.log("Raw messages:", data);
@@ -84,8 +81,7 @@ async function fetchMessages() {
   const formattedMessages = (data || []).map((msg: any) => ({
     message_id: msg.message_id,
     sender_id: msg.sender_id,
-    receiver_id: msg.receiver_id,
-    message_content: msg.predefined_messages?.message_content || "Message content not found",
+    message_content: msg.message_content,
     sent_at: msg.sent_at,
   }));
 
@@ -129,21 +125,25 @@ async function fetchMessages() {
   async function sendMessage(selectedMessage: PredefinedMessage) {
     console.log("Sending message:", selectedMessage);
     // Insert new message into the database
-    const { error } = await supabase.from("messages").insert([
+    const { error, data } = await supabase.from("messages").insert([
       {
         sender_id: session?.user.id, // User selecting the message
-        receiver_id: id, // Send to the selected user
+        // receiver_id: id, // Send to the selected user
         sent_at: new Date().toISOString(),
         received_at: null,
         is_read: false,
-        conversation_id: null,
+        conversation_id: id,
         message_type: "text",
         read_at: null,
         is_delivered: false,
-        message_content_id: selectedMessage.id, // Use message_content_id instead of message_content
+        message_content: selectedMessage.message_content, // Use message_content_id instead of message_content
       },
-    ]);
-
+    ]
+  )
+  .select()
+  
+    console.log("Message sent:", data);
+    console.log("Error sending message:", error);
     if (error) {
       console.error("Error sending message:", error);
     } else {
@@ -155,7 +155,7 @@ async function fetchMessages() {
     <View
       style={[
         styles.messageContainer,
-        item.sender_id === id ? styles.selfMessage : styles.otherMessage,
+        item.sender_id === id ? styles.otherMessage : styles.selfMessage,
       ]}
       key={item.message_id} // Ensure unique key for each message
     >
@@ -186,7 +186,7 @@ async function fetchMessages() {
             style={styles.optionButton}
             onPress={() => sendMessage(option)}
           >
-            <Text style={styles.optionText}>{option.message_text}</Text>
+            <Text style={styles.optionText}>{option.message_content}</Text>
           </TouchableOpacity>
         ))}
       </View>

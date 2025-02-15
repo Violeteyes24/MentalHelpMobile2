@@ -16,6 +16,7 @@ type Message = {
   user_id: string; // The ID of the other participant
   name: string; // The name of the other participant
   message_content: string; // The latest message
+  conversation_id: string; // The ID of the conversation
 };
 
 export default function MessageList() {
@@ -51,51 +52,45 @@ async function fetchConversations() {
     let { data, error } = await supabase
       .from("messages")
       .select(
-        "*, predefined_messages(message_content)"
+        "*",
       )
-      .or(`sender_id.eq.${currentUserId}, receiver_id.eq.${currentUserId}`)
       .order("sent_at", { ascending: false });
-
 
     if (error) throw error;
 
     if (!data || data.length === 0) {
       setConversations([]);
     } else {
-      const uniqueConversations: { [key: string]: Message } = {};
+      let uniqueConversations:any = [];
 
       for (const msg of data) {
-        console.log('Message content:', msg.predefined_messages?.message_content);
-        const otherUserId =
-          msg.sender_id === currentUserId ? msg.receiver_id : msg.sender_id;
-        if (!uniqueConversations[otherUserId]) {
-          uniqueConversations[otherUserId] = {
-            user_id: otherUserId,
-            name: "Unknown", // To be updated later
-            message_content:
-               msg.predefined_messages?.message_content ?? "No content",
-          };
+        if (
+          msg.conversation_id && !uniqueConversations.some(
+            (conv:any) => conv.conversation_id === msg.conversation_id
+          )
+        ) {
+          uniqueConversations.push(msg);
         }
       }
+    console.log("Unique conversations:", uniqueConversations);
+    setConversations(uniqueConversations);
 
       // Fetch user names
-      const userIds = Object.keys(uniqueConversations);
-      if (userIds.length > 0) {
-        let { data: users, error: userError } = await supabase
-          .from("users")
-          .select("user_id, name")
-          .in("user_id", userIds);
+      // const userIds = Object.keys(uniqueConversations);
+      // if (userIds.length > 0) {
+      //   let { data: users, error: userError } = await supabase
+      //     .from("users")
+      //     .select("user_id, name")
+      //     .in("user_id", userIds);
 
-        if (!userError && users) {
-          users.forEach((user) => {
-            if (uniqueConversations[user.user_id]) {
-              uniqueConversations[user.user_id].name = user.name;
-            }
-          });
-        }
-      }
-
-      setConversations(Object.values(uniqueConversations));
+      //   if (!userError && users) {
+      //     users.forEach((user) => {
+      //       if (uniqueConversations[user.user_id]) {
+      //         uniqueConversations[user.user_id].name = user.name;
+      //       }
+      //     });
+      //   }
+      // }
     }
   } catch (err) {
     console.error("Error fetching messages:", err);
@@ -109,8 +104,8 @@ async function fetchConversations() {
     <TouchableOpacity
       style={styles.itemContainer}
       onPress={() => {
-        console.log(`Navigating to messaging page with user ID: ${item.user_id}`);
-        router.push(`/messaging/${item.user_id}`); // Navigate to dynamic route
+        console.log(`Navigating to messaging page with user ID: ${item.conversation_id}`);
+        router.push(`/messaging/${item.conversation_id}`); // Navigate to dynamic route
       }}
     >
       <Image
@@ -120,7 +115,7 @@ async function fetchConversations() {
         style={styles.avatar}
       />
       <View style={styles.messageContainer}>
-        <Text style={styles.name}>{item.name}</Text>
+        <Text style={styles.name}>{item.message_content}</Text>
         <Text style={styles.message}>{item.message_content}</Text>
       </View>
     </TouchableOpacity>
