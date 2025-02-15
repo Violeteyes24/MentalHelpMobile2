@@ -11,6 +11,15 @@ import { useAuth } from "../../context/AuthContext";
 import { Config } from "../../config/config";
 import OpenAI from "openai";
 
+export type ChatbotView = {
+  chat_question_id: string;
+  chat_answer_id: string;
+  chatbot_question: string;
+  chatbot_answer: string;
+  user_id: string;
+  timestamp: string;
+};
+
 const openai = new OpenAI({
   apiKey: Config.OPENAI_API_KEY,
 });
@@ -18,9 +27,7 @@ console.log(Config.OPENAI_API_KEY);
 
 const Chatbot = () => {
   const { session } = useAuth();
-  const [chatLog, setChatLog] = useState<
-    { question: string; response: string }[]
-  >([]);
+  const [chatLog, setChatLog] = useState<ChatbotView[]>([]);
   const [userData, setUserData] = useState(null);
   const [moodData, setMoodData] = useState(null);
   const [questions, setQuestions] = useState<{ id: string; question: string }[]>([]);
@@ -47,11 +54,11 @@ const Chatbot = () => {
 
   async function fetchChatLog() {
     const { data, error } = await supabase
-      .from("chatbot")
+      .from("chatbot_view")
       .select("*")
       .eq("user_id", session?.user.id)
-      .order("conversation_date", { ascending: true });
-
+      .order("timestamp", { ascending: true });
+      // console.log(data);
     if (error) {
       console.error("Error fetching chat log:", error);
     } else {
@@ -96,6 +103,7 @@ const Chatbot = () => {
     const { data, error } = await supabase
       .from("chatbot_questions")
       .select("chat_question_id, chatbot_question");
+      // .eq("user_id", session?.user.id);
 
     if (error) {
       console.error("Error fetching questions:", error);
@@ -116,10 +124,9 @@ const Chatbot = () => {
     console.log("Question pressed:", question);
     const response = await generateResponse(question);
     const trimmedResponse = response.trim();
-    const newLog = { question, response: trimmedResponse };
 
     const questionId = questions.find((q) => q.question === question)?.id;
-    const answerId = await fetchAnswerId(trimmedResponse);
+    const answerId = await fetchAnswerId(questionId || "");
 
     if (!questionId) {
       console.error("Question ID not found for question:", question);
@@ -127,7 +134,7 @@ const Chatbot = () => {
     }
 
     if (!answerId) {
-      console.error("Answer ID not found for response:", trimmedResponse);
+      console.error("Question ID not found for response:", questionId);
       return;
     }
 
@@ -138,19 +145,21 @@ const Chatbot = () => {
         user_id: session?.user.id,
         chat_question_id: questionId,
         chat_answer_id: answerId,
+        
         conversation_date: new Date().toISOString(),
       },
     ]);
+    const newLog = { chat_question_id: questionId, chat_answer_id: answerId, chatbot_question: question, chatbot_answer: trimmedResponse, user_id: session?.user.id || "", timestamp: new Date().toISOString() };
 
     if (error) console.log("Error inserting chat log:", error);
     else setChatLog([...chatLog, newLog]);
   }
 
-  async function fetchAnswerId(answer: string) {
+  async function fetchAnswerId(chatbot_question_id: string) {
     const { data, error } = await supabase
       .from("chatbot_answers")
       .select("chat_answer_id")
-      .eq("chatbot_answer", answer)
+      .eq("chat_question_id", chatbot_question_id)
       .single();
 
     if (error && error.code !== "PGRST116") {
@@ -159,10 +168,13 @@ const Chatbot = () => {
     }
 
     if (!data) {
-      console.error("No answer ID found for answer:", answer);
+      console.error(
+        "No answer ID found for chatbot_question_id:",
+        chatbot_question_id
+      );
       return null;
     }
-
+    
     return data.chat_answer_id;
   }
 
@@ -225,10 +237,10 @@ const Chatbot = () => {
         {chatLog.map((log, index) => (
           <View key={index} style={styles.messageWrapper}>
             <View style={styles.userMessageContainer}>
-              <Text style={styles.userMessage}>You: {log.question}</Text>
+              <Text style={styles.userMessage}>You: {log.chatbot_question}</Text>
             </View>
             <View style={styles.botMessageContainer}>
-              <Text style={styles.botMessage}>Bot: {log.response}</Text>
+              <Text style={styles.botMessage}>Bot: {log.chatbot_answer}</Text>
             </View>
           </View>
         ))}
