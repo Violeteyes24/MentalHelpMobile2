@@ -16,6 +16,7 @@ interface Message {
   sender_id: string;
   message_content: string;
   sent_at: string;
+  sender_name?: string;
 }
 
 interface PredefinedMessage {
@@ -71,7 +72,10 @@ async function fetchMessages() {
       message_id,
       sender_id,
       sent_at,
-      message_content
+      message_content,
+      users:sender_id (
+        name
+      )
     `)
     .eq("conversation_id", id)
     .order("sent_at", { ascending: false });
@@ -83,10 +87,12 @@ async function fetchMessages() {
     sender_id: msg.sender_id,
     message_content: msg.message_content,
     sent_at: msg.sent_at,
+    sender_name: msg.users?.name || 'Unknown User'
   }));
 
   setMessages(formattedMessages);
 }
+
  async function fetchPredefinedOptions() {
   //  console.log("Fetching predefined options");
    const { data, error } = await supabase
@@ -155,17 +161,20 @@ async function fetchMessages() {
     <View
       style={[
         styles.messageContainer,
-        item.sender_id === id ? styles.otherMessage : styles.selfMessage,
+        item.sender_id === session?.user.id ? styles.selfMessage : styles.otherMessage,
       ]}
       key={item.message_id} // Ensure unique key for each message
     >
-      {item.sender_id !== id && (
+      {item.sender_id !== session?.user.id && (
         <Image
           source={{ uri: "https://via.placeholder.com/40" }}
           style={styles.avatar}
         />
       )}
-      <Text style={styles.messageText}>{item.message_content}</Text>
+      <View>
+        <Text style={styles.senderName}>{item.sender_name}</Text>
+        <Text style={styles.messageText}>{item.message_content}</Text>
+      </View>
     </View>
   );
 
@@ -230,5 +239,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
     textAlign: "center",
+  },
+  senderName: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
   },
 });

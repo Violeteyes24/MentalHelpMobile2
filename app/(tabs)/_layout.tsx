@@ -44,7 +44,7 @@ export default function TabLayout() {
       router.dismissAll();
       // router.push('index');
     }
-    console.log("Session in (tabs)/_layout:", session);
+      // console.log("Session in (tabs)/_layout:", session);
   }, [session]);
 
   return (

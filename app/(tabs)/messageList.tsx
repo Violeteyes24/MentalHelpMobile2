@@ -51,9 +51,13 @@ async function fetchConversations() {
 
     let { data, error } = await supabase
       .from("messages")
-      .select(
-        "*",
-      )
+      .select(`
+        *,
+        users:conversation_id (
+          name
+        )
+      `)
+      .or(`sender_id.eq.${currentUserId},conversation_id.eq.${currentUserId}`) // Show messages where user is sender OR conversation participant
       .order("sent_at", { ascending: false });
 
     if (error) throw error;
@@ -61,36 +65,20 @@ async function fetchConversations() {
     if (!data || data.length === 0) {
       setConversations([]);
     } else {
-      let uniqueConversations:any = [];
+      let uniqueConversations = [];
+      const seen = new Set();
 
       for (const msg of data) {
-        if (
-          msg.conversation_id && !uniqueConversations.some(
-            (conv:any) => conv.conversation_id === msg.conversation_id
-          )
-        ) {
-          uniqueConversations.push(msg);
+        if (msg.conversation_id && !seen.has(msg.conversation_id)) {
+          seen.add(msg.conversation_id);
+          uniqueConversations.push({
+            ...msg,
+            name: msg.users?.name || 'Unknown User'
+          });
         }
       }
-    console.log("Unique conversations:", uniqueConversations);
-    setConversations(uniqueConversations);
-
-      // Fetch user names
-      // const userIds = Object.keys(uniqueConversations);
-      // if (userIds.length > 0) {
-      //   let { data: users, error: userError } = await supabase
-      //     .from("users")
-      //     .select("user_id, name")
-      //     .in("user_id", userIds);
-
-      //   if (!userError && users) {
-      //     users.forEach((user) => {
-      //       if (uniqueConversations[user.user_id]) {
-      //         uniqueConversations[user.user_id].name = user.name;
-      //       }
-      //     });
-      //   }
-      // }
+      console.log("Unique conversations:", uniqueConversations);
+      setConversations(uniqueConversations);
     }
   } catch (err) {
     console.error("Error fetching messages:", err);
@@ -115,7 +103,7 @@ async function fetchConversations() {
         style={styles.avatar}
       />
       <View style={styles.messageContainer}>
-        <Text style={styles.name}>{item.message_content}</Text>
+        <Text style={styles.name}>{item.name}</Text>
         <Text style={styles.message}>{item.message_content}</Text>
       </View>
     </TouchableOpacity>
