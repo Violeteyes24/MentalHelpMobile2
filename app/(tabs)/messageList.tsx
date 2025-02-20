@@ -13,10 +13,10 @@ import { useRouter } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
 
 type Message = {
-  user_id: string; // The ID of the other participant
-  name: string; // The name of the other participant
-  message_content: string; // The latest message
-  conversation_id: string; // The ID of the conversation
+  sender_id: string;
+  message_content: string;
+  conversation_id: string;
+  sender_name?: string;
 };
 
 export default function MessageList() {
@@ -44,49 +44,49 @@ export default function MessageList() {
     };
   }, []);
 
-async function fetchConversations() {
-  setLoading(true);
-  try {
-    const currentUserId = session?.user.id;
-
-    let { data, error } = await supabase
-      .from("messages")
-      .select(`
-        *,
-        users:conversation_id (
-          name
-        )
-      `)
-      .or(`sender_id.eq.${currentUserId},conversation_id.eq.${currentUserId}`) // Show messages where user is sender OR conversation participant
-      .order("sent_at", { ascending: false });
-
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      setConversations([]);
-    } else {
-      let uniqueConversations = [];
-      const seen = new Set();
-
-      for (const msg of data) {
-        if (msg.conversation_id && !seen.has(msg.conversation_id)) {
-          seen.add(msg.conversation_id);
-          uniqueConversations.push({
-            ...msg,
-            name: msg.users?.name || 'Unknown User'
-          });
+  async function fetchConversations() {
+    setLoading(true);
+    try {
+      const currentUserId = session?.user.id;
+      if (!currentUserId) return;
+  
+      let { data, error } = await supabase
+        .from("messages")
+        .select(`
+          *,
+          sender:sender_id ( name )
+        `)
+        .or(`sender_id.eq.${currentUserId},conversation_id.eq.${currentUserId}`)
+        .order("sent_at", { ascending: false });
+  
+      if (error) throw error;
+  
+      if (!data || data.length === 0) {
+        setConversations([]);
+      } else {
+        let uniqueConversations = [];
+        const seen = new Set();
+  
+        for (const msg of data) {
+          if (msg.conversation_id && !seen.has(msg.conversation_id)) {
+            seen.add(msg.conversation_id);
+            uniqueConversations.push({
+              ...msg,
+              sender_name: msg.sender?.name || "Unknown"
+            });
+          }
         }
+        // console.log("Unique conversations:", uniqueConversations);
+        setConversations(uniqueConversations);
       }
-      console.log("Unique conversations:", uniqueConversations);
-      setConversations(uniqueConversations);
+    } catch (err) {
+      console.error("Error fetching messages:", err);
+      setConversations([]);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error("Error fetching messages:", err);
-    setConversations([]);
-  } finally {
-    setLoading(false);
   }
-}
+  
 
   const renderItem = ({ item }: { item: Message }) => (
     <TouchableOpacity
@@ -103,7 +103,7 @@ async function fetchConversations() {
         style={styles.avatar}
       />
       <View style={styles.messageContainer}>
-        <Text style={styles.name}>{item.name}</Text>
+        <Text style={styles.name}>{item.sender_name}</Text>
         <Text style={styles.message}>{item.message_content}</Text>
       </View>
     </TouchableOpacity>
@@ -128,7 +128,7 @@ async function fetchConversations() {
         <FlatList
           data={conversations}
           renderItem={renderItem}
-          keyExtractor={(item) => item.user_id}
+          keyExtractor={(item) => item.conversation_id}
         />
       )}
     </View>

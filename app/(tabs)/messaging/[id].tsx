@@ -7,7 +7,7 @@ export default function MessagingPage() {
   const { id } = useLocalSearchParams();
 
   useEffect(() => {
-    console.log(`User navigated to MessagingPage with ID: ${id}`);
+    // console.log(`User navigated to MessagingPage with ID: ${id}`);
   }, [id]);
 
   return (

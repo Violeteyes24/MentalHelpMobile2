@@ -10,6 +10,7 @@ import {
 import { useLocalSearchParams } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
+import { ScrollView as HScrollView } from 'react-native';
 
 interface Message {
   message_id: string;
@@ -109,24 +110,27 @@ async function fetchMessages() {
    }
  }
 
- async function fetchUserName() {
+async function fetchUserName() {
   if (!id) {
     console.log("No ID found");
     return;
   }
 
   const { data, error } = await supabase
-    .from("users") // Assuming the table name is 'users'
+    .from("users")
     .select("name")
     .eq("user_id", id)
     .single();
 
   if (error) {
     console.error("Error fetching user name:", error);
-  } else {
-    setUserName(data?.name || "Unknown User");
+    setUserName("Unknown User");
+  } else if (data) {
+    console.log("Fetched user name:", data.name);
+    setUserName(data.name);
   }
 }
+
 
   async function sendMessage(selectedMessage: PredefinedMessage) {
     console.log("Sending message:", selectedMessage);
@@ -158,91 +162,175 @@ async function fetchMessages() {
   }
 
   const renderMessage = ({ item }: { item: Message }) => (
-    <View
-      style={[
-        styles.messageContainer,
-        item.sender_id === session?.user.id ? styles.selfMessage : styles.otherMessage,
-      ]}
-      key={item.message_id} // Ensure unique key for each message
-    >
-      {item.sender_id !== session?.user.id && (
-        <Image
-          source={{ uri: "https://via.placeholder.com/40" }}
-          style={styles.avatar}
-        />
+    <View style={styles.messageWrapper}>
+      {item.sender_id === session?.user.id ? (
+        <View style={styles.userMessageContainer}>
+          <Text style={styles.userMessage}>{item.message_content}</Text>
+          <Text style={styles.timestamp}>{new Date(item.sent_at).toLocaleTimeString()}</Text>
+        </View>
+      ) : (
+        <View style={[styles.botMessageContainer, styles.botMessageShadow]}>
+          <Text style={styles.senderName}>{item.sender_name}</Text>
+          <Text style={styles.botMessage}>{item.message_content}</Text>
+          <Text style={[styles.timestamp, styles.botTimestamp]}>
+            {new Date(item.sent_at).toLocaleTimeString()}
+          </Text>
+        </View>
       )}
-      <View>
-        <Text style={styles.senderName}>{item.sender_name}</Text>
-        <Text style={styles.messageText}>{item.message_content}</Text>
-      </View>
     </View>
   );
 
   return (
     <View style={styles.container}>
-      <Text style={styles.name}>Messages from: {userName}</Text>
+      <Text style={styles.title}>Messages</Text>
       <FlatList
+        style={styles.chatLog}
+        contentContainerStyle={styles.chatLogContent}
         data={messages}
         renderItem={renderMessage}
         keyExtractor={(item) => item.message_id}
         inverted
       />
 
-      <View style={styles.optionsContainer}>
-        {predefinedOptions.map((option, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.optionButton}
-            onPress={() => sendMessage(option)}
-          >
-            <Text style={styles.optionText}>{option.message_content}</Text>
-          </TouchableOpacity>
-        ))}
+      {/* Predefined Messages Carousel */}
+      <View style={styles.carouselContainer}>
+        <HScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.carousel}
+        >
+          {predefinedOptions.map((option, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.optionButton}
+              onPress={() => sendMessage(option)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.optionText}>{option.message_content}</Text>
+            </TouchableOpacity>
+          ))}
+        </HScrollView>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: 20, backgroundColor: "#f8f8f8" },
-  messageContainer: {
-    flexDirection: "column",
-    alignItems: "flex-end",
-    marginBottom: 10,
-    marginHorizontal: 10,
+  container: {
+    flex: 1,
+    padding: "7%",
+    backgroundColor: "#fff",
   },
-  selfMessage: {
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 20,
+    color: "#000",
+    marginTop: "10%",
+  },
+  chatLog: {
+    flex: 1,
+    marginBottom: 20,
+  },
+  chatLogContent: {
+    paddingVertical: 15,
+    paddingHorizontal: 10,
+  },
+  messageWrapper: {
+    marginBottom: 20,
+  },
+  userMessageContainer: {
     alignSelf: "flex-end",
     backgroundColor: "#6ee7b7",
-    padding: 10,
-    borderRadius: 10,
+    padding: 15,
+    borderRadius: 20,
+    borderBottomRightRadius: 5,
+    maxWidth: "80%",
+    marginBottom: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+    paddingBottom: 8,
   },
-  otherMessage: {
+  botMessageContainer: {
     alignSelf: "flex-start",
-    backgroundColor: "#d1d1d1",
-    padding: 10,
-    borderRadius: 10,
+    backgroundColor: "#ffffff",
+    padding: 15,
+    borderRadius: 20,
+    borderBottomLeftRadius: 5,
+    maxWidth: "80%",
+    borderColor: "#e0e0e0",
+    borderWidth: 1,
+    paddingBottom: 8,
   },
-  avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10 },
-  messageText: { fontSize: 16, color: "#333" },
-  optionsContainer: { padding: 10, borderTopWidth: 1, borderColor: "#e1e1e1" },
-  optionButton: {
-    padding: 10,
-    backgroundColor: "#007AFF",
-    borderRadius: 5,
-    marginVertical: 5,
+  botMessageShadow: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  optionText: { color: "#fff", textAlign: "center" },
-  name: {
-    marginTop: "10%",
-    fontSize: 18,
-    fontWeight: "bold",
+  userMessage: {
+    fontSize: 16,
+    color: "#ffffff",
+    fontWeight: "500",
+  },
+  botMessage: {
+    fontSize: 16,
     color: "#333",
-    textAlign: "center",
+    lineHeight: 22,
   },
   senderName: {
     fontSize: 12,
     color: '#666',
     marginBottom: 4,
+    fontWeight: "500",
+  },
+  timestamp: {
+    fontSize: 11,
+    color: 'rgba(0, 0, 0, 0.5)',
+    marginTop: 4,
+    alignSelf: 'flex-end',
+    paddingTop: 2,
+  },
+  botTimestamp: {
+    color: 'rgba(0, 0, 0, 0.5)',
+  },
+  carouselContainer: {
+    height: 100,
+    marginBottom: 10,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 10,
+    padding: 5,
+  },
+  carousel: {
+    paddingHorizontal: 4,
+    alignItems: 'center',
+  },
+  optionButton: {
+    backgroundColor: "#6ee7b7",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    marginHorizontal: 5,
+    height: 60,
+    minWidth: 150,
+    maxWidth: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  optionText: {
+    color: "white",
+    fontWeight: "600",
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
