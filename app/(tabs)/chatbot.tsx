@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Modal,
+  ActivityIndicator,
 } from "react-native";
 import { supabase } from "../../lib/supabase";
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -50,6 +51,7 @@ const Chatbot = () => {
   const [questions, setQuestions] = useState<{ id: string; question: string }[]>([]);
   const [showTerms, setShowTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     const checkAndInitialize = async () => {
@@ -159,14 +161,13 @@ const Chatbot = () => {
       .select("*")
       .eq("user_id", session?.user.id)
       .order("tracked_at", { ascending: false })
-      .limit(1)
-      .single();
+      .limit(6);
 
     if (error) {
       console.error("Error fetching mood data:", error);
     } else {
-      // console.log("Fetched mood data:", data);
-      setMoodData(data);
+      console.log("Fetched mood data:", JSON.stringify(data, null, 2));
+      setMoodData(data as any);
     }
   }
 
@@ -192,49 +193,64 @@ const Chatbot = () => {
   }
 
   async function handleQuestionPress(question: string) {
+    if (isGenerating) return;
+    
+    setIsGenerating(true);
     const currentTimestamp = new Date().toISOString();
-    console.log("Question pressed:", question);
-    const response = await generateResponse(question);
-    const trimmedResponse = response.trim();
+    
+    try {
+      const questionId = questions.find((q) => q.question === question)?.id;
+      const answerId = await fetchAnswerId(questionId || "");
 
-    const questionId = questions.find((q) => q.question === question)?.id;
-    const answerId = await fetchAnswerId(questionId || "");
+      if (!questionId || !answerId) {
+        console.error("Question or Answer ID not found");
+        return;
+      }
 
-    if (!questionId) {
-      console.error("Question ID not found for question:", question);
-      return;
+      // First get the predefined answer
+      const { data: predefinedAnswer, error: answerError } = await supabase
+        .from("chatbot_answers")
+        .select("chatbot_answer")
+        .eq("chat_question_id", questionId)
+        .single();
+
+      if (answerError) {
+        console.error("Error fetching predefined answer:", answerError);
+        return;
+      }
+
+      // Then get the AI response
+      const aiResponse = await generateResponse(question);
+      const trimmedAiResponse = aiResponse.trim();
+
+      // Insert into chatbot table with both responses
+      const { error } = await supabase.from("chatbot").insert([
+        {
+          user_id: session?.user.id,
+          chat_question_id: questionId,
+          chat_answer_id: answerId,
+          conversation_date: currentTimestamp,
+          dynamic_response_openai: trimmedAiResponse
+        },
+      ]);
+
+      const newLog = { 
+        chat_question_id: questionId, 
+        chat_answer_id: answerId, 
+        chatbot_question: question, 
+        chatbot_answer: predefinedAnswer.chatbot_answer,
+        dynamic_response_openai: trimmedAiResponse,
+        user_id: session?.user.id || "", 
+        timestamp: currentTimestamp
+      };
+
+      if (error) console.log("Error inserting chat log:", error);
+      else setChatLog([...chatLog, newLog]);
+    } catch (error) {
+      console.error("Error handling question:", error);
+    } finally {
+      setIsGenerating(false);
     }
-
-    if (!answerId) {
-      console.error("Question ID not found for response:", questionId);
-      return;
-    }
-
-    console.log("Question ID:", questionId, "Answer ID:", answerId);
-
-    // Insert into chatbot table with dynamic_response_openai
-    const { error } = await supabase.from("chatbot").insert([
-      {
-        user_id: session?.user.id,
-        chat_question_id: questionId,
-        chat_answer_id: answerId,
-        conversation_date: currentTimestamp, // Use current timestamp
-        dynamic_response_openai: trimmedResponse // Store the OpenAI response
-      },
-    ]);
-
-    const newLog = { 
-      chat_question_id: questionId, 
-      chat_answer_id: answerId, 
-      chatbot_question: question, 
-      chatbot_answer: trimmedResponse, 
-      dynamic_response_openai: trimmedResponse, // Add this field
-      user_id: session?.user.id || "", 
-      timestamp: currentTimestamp // Use current timestamp
-    };
-
-    if (error) console.log("Error inserting chat log:", error);
-    else setChatLog([...chatLog, newLog]);
   }
 
   async function fetchAnswerId(chatbot_question_id: string) {
@@ -331,16 +347,16 @@ const Chatbot = () => {
   
     console.log("Proceeding to OpenAI API call");
   
-    const prompt = `You are a mental health chat bot and is expected to assist the user.
+    const prompt = `You are a mental health chat bot and is expected to assist the user, reply in a short and meaningful message.
       
   Previous Conversation Context and Themes:
   ${conversationContext || 'No previous context available'}
   
   User Data: ${JSON.stringify(userData)}
-  Mood Data: ${JSON.stringify(moodData)}
+  Recent Mood History (Last 6 entries): ${JSON.stringify(moodData)}
   Question: ${question}
   
-  Based on the user's conversation history, current question, and personal data, provide a personalized and contextually relevant response. Call the user by their name if available.
+  Based on the user's conversation history, current question, mood patterns from their last 6 mood entries, and personal data, provide a personalized and contextually relevant response. Consider any trends or changes in their mood when responding. Call the user by their name if available.
   
   Response:`;
   
@@ -418,7 +434,7 @@ const Chatbot = () => {
                 <Text style={styles.predefinedResponse}>Bot: {log.chatbot_answer}</Text>
                 {log.dynamic_response_openai && (
                   <Text style={styles.dynamicResponse}>
-                    {'\n\n'}Additional Response: {log.dynamic_response_openai}
+                    {'\n\n'}AI Response: {log.dynamic_response_openai}
                   </Text>
                 )}
               </Text>
@@ -426,6 +442,12 @@ const Chatbot = () => {
             </View>
           </View>
         ))}
+        {isGenerating && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#6ee7b7" />
+            <Text style={styles.loadingText}>Generating response...</Text>
+          </View>
+        )}
       </ScrollView>
 
       {/* Question Carousel */}
@@ -438,9 +460,13 @@ const Chatbot = () => {
           {questions.map((question, index) => (
             <TouchableOpacity
               key={index}
-              style={styles.questionButton}
+              style={[
+                styles.questionButton,
+                isGenerating && styles.questionButtonDisabled
+              ]}
               onPress={() => handleQuestionPress(question.question)}
-              activeOpacity={0.7}
+              disabled={isGenerating}
+              activeOpacity={isGenerating ? 1 : 0.7}
             >
               <Text style={styles.questionText}>{question.question}</Text>
             </TouchableOpacity>
@@ -517,11 +543,13 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   predefinedResponse: {
-    fontWeight: "500",
+    fontWeight: "700",
+    fontSize: 16,
+    color: '#333',
   },
   dynamicResponse: {
-    color: '#666',
     fontStyle: 'italic',
+    color: '#666',
     fontSize: 15,
   },
   carouselContainer: {
@@ -615,5 +643,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     textDecorationLine: 'underline',
     marginBottom: 20,
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
+    fontSize: 14,
+  },
+  questionButtonDisabled: {
+    opacity: 0.5,
   },
 });
