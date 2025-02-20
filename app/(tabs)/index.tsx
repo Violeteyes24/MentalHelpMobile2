@@ -8,6 +8,7 @@ import { LineChart } from "react-native-chart-kit";
 interface MoodData {
   mood_type: string;
   intensity: number;
+  tracked_at: string;  // Add this field
 }
 
 export default function HomeScreen() {
@@ -51,18 +52,27 @@ export default function HomeScreen() {
   }
 
   async function fetchLatestMoodTrackerData(): Promise<MoodData[] | null> {
+    // Get current week's start and end dates
+    const now = new Date();
+    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(endOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+  
     let { data: mood_tracker, error } = await supabase
       .from("mood_tracker")
-      .select("mood_type, intensity")
+      .select("mood_type, intensity, tracked_at")
       .eq("user_id", session?.user.id)
-      .order("tracked_at", { ascending: false })
-      .limit(6);
-
+      .gte("tracked_at", startOfWeek.toISOString())
+      .lte("tracked_at", endOfWeek.toISOString())
+      .order("tracked_at", { ascending: true });
+  
     if (error) {
       console.error("Error fetching mood tracker data:", error);
       return null;
     } else if (mood_tracker && mood_tracker.length > 0) {
-      // console.log("Latest mood data:", mood_tracker);
       return mood_tracker;
     } else {
       console.log("No mood tracker data found.");
@@ -91,12 +101,36 @@ export default function HomeScreen() {
     ? moodData.map((mood) => ({ label: mood.mood_type, value: mood.intensity }))
     : [];
 
+  const getDayAverages = (moodData: MoodData[]) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayAverages = days.reduce((acc, day) => {
+      acc[day] = { sum: 0, count: 0 };
+      return acc;
+    }, {} as Record<string, { sum: number; count: number }>);
+
+    // Sum up intensities for each day
+    moodData.forEach(mood => {
+      const date = new Date(mood.tracked_at);
+      const day = days[date.getDay()];
+      if (dayAverages[day]) {
+        dayAverages[day].sum += mood.intensity;
+        dayAverages[day].count += 1;
+      }
+    });
+
+    // Calculate averages and handle days with no data
+    return days.map(day => {
+      const dayData = dayAverages[day];
+      return dayData.count === 0 ? 0 : Math.round((dayData.sum / dayData.count) * 10) / 10;
+    });
+  };
+
   const lineChartData = moodData
     ? {
-        labels: moodData.map((_, index) => `Entry ${index + 1}`),
+        labels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
         datasets: [
           {
-            data: moodData.map((mood) => mood.intensity),
+            data: getDayAverages(moodData),
             color: (opacity = 1) => `rgba(75, 192, 192, ${opacity})`,
             strokeWidth: 3,
           },
