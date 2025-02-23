@@ -8,19 +8,21 @@ import { LineChart } from "react-native-chart-kit";
 interface MoodData {
   mood_type: string;
   intensity: number;
-  tracked_at: string;  // Add this field
+  tracked_at: string;
 }
 
 export default function HomeScreen() {
   const { session } = useAuth();
-  // console.log(session);
   const [moodData, setMoodData] = useState<MoodData[] | null>(null);
   const [name, setName] = useState("User");
+  const [monthlyMoodData, setMonthlyMoodData] = useState<MoodData[] | null>(null);
 
   useEffect(() => {
     const getMoodData = async () => {
-      const data = await fetchLatestMoodTrackerData();
-      setMoodData(data);
+      const weekData = await fetchLatestMoodTrackerData();
+      const monthData = await fetchMonthlyMoodTrackerData();
+      setMoodData(weekData);
+      setMonthlyMoodData(monthData);
     };
 
     getMoodData();
@@ -31,16 +33,15 @@ export default function HomeScreen() {
         { event: '*', schema: 'public', table: 'mood_tracker' },
         (payload) => {
           console.log('Change received!', payload);
-          getMoodData(); // Refetch mood data on any change
+          getMoodData();
         }
       )
       .subscribe();
 
-    // Cleanup subscription on unmount
     return () => {
       channel.unsubscribe();
     };
-  }, [session?.user.id]); // Runs when user session changes
+  }, [session?.user.id]);
 
   const getUserName = async () => {
     const fetchedName = await fetchUserName();
@@ -52,7 +53,6 @@ export default function HomeScreen() {
   }
 
   async function fetchLatestMoodTrackerData(): Promise<MoodData[] | null> {
-    // Get current week's start and end dates
     const now = new Date();
     const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
     startOfWeek.setHours(0, 0, 0, 0);
@@ -72,12 +72,28 @@ export default function HomeScreen() {
     if (error) {
       console.error("Error fetching mood tracker data:", error);
       return null;
-    } else if (mood_tracker && mood_tracker.length > 0) {
-      return mood_tracker;
-    } else {
-      console.log("No mood tracker data found.");
+    }
+    return mood_tracker || null;
+  }
+
+  async function fetchMonthlyMoodTrackerData(): Promise<MoodData[] | null> {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    let { data: mood_tracker, error } = await supabase
+      .from("mood_tracker")
+      .select("mood_type, intensity, tracked_at")
+      .eq("user_id", session?.user.id)
+      .gte("tracked_at", startOfMonth.toISOString())
+      .lte("tracked_at", endOfMonth.toISOString())
+      .order("tracked_at", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching monthly mood tracker data:", error);
       return null;
     }
+    return mood_tracker || null;
   }
 
   async function fetchUserName() {
@@ -89,17 +105,28 @@ export default function HomeScreen() {
 
     if (error) {
       console.error("Error fetching user data:", error);
-      return "User"; // Default name if error occurs
-    } else {
-      return user.name;
+      return "User";
     }
+    return user.name;
   }
 
   const screenWidth = Dimensions.get("window").width;
 
-  const radarChartData = moodData
-    ? moodData.map((mood) => ({ label: mood.mood_type, value: mood.intensity }))
-    : [];
+  const radarChartData = moodData ? (() => {
+    const moodGroups = moodData.reduce((acc, mood) => {
+      if (!acc[mood.mood_type]) {
+        acc[mood.mood_type] = { sum: 0, count: 0 };
+      }
+      acc[mood.mood_type].sum += mood.intensity;
+      acc[mood.mood_type].count += 1;
+      return acc;
+    }, {} as Record<string, { sum: number; count: number }>);
+
+    return Object.entries(moodGroups).map(([mood_type, data]) => ({
+      label: mood_type,
+      value: Math.round((data.sum / data.count) * 10) / 10
+    }));
+  })() : [];
 
   const getDayAverages = (moodData: MoodData[]) => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -108,7 +135,6 @@ export default function HomeScreen() {
       return acc;
     }, {} as Record<string, { sum: number; count: number }>);
 
-    // Sum up intensities for each day
     moodData.forEach(mood => {
       const date = new Date(mood.tracked_at);
       const day = days[date.getDay()];
@@ -118,7 +144,6 @@ export default function HomeScreen() {
       }
     });
 
-    // Calculate averages and handle days with no data
     return days.map(day => {
       const dayData = dayAverages[day];
       return dayData.count === 0 ? 0 : Math.round((dayData.sum / dayData.count) * 10) / 10;
@@ -138,6 +163,102 @@ export default function HomeScreen() {
       }
     : null;
 
+  const getMonthlyAverages = (monthlyData: MoodData[]) => {
+    if (!monthlyData || monthlyData.length === 0) return [];
+
+    const weeklyAverages: { [key: number]: { sum: number; count: number } } = {
+      1: { sum: 0, count: 0 },
+      2: { sum: 0, count: 0 },
+      3: { sum: 0, count: 0 },
+      4: { sum: 0, count: 0 }
+    };
+
+    monthlyData.forEach(mood => {
+      const date = new Date(mood.tracked_at);
+      const week = Math.ceil(date.getDate() / 7);
+      if (week <= 4) {
+        weeklyAverages[week].sum += mood.intensity;
+        weeklyAverages[week].count += 1;
+      }
+    });
+
+    return Object.values(weeklyAverages).map(data => 
+      data.count > 0 ? Math.round((data.sum / data.count) * 10) / 10 : 0
+    );
+  };
+
+  const monthlyChartData = monthlyMoodData ? {
+    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+    datasets: [{
+      data: getMonthlyAverages(monthlyMoodData),
+      color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
+      strokeWidth: 2
+    }]
+  } : null;
+
+  const getMostIntenseMood = (moodData: MoodData[] | null) => {
+    if (!moodData || moodData.length === 0) return null;
+
+    // Group moods by type and calculate total intensity and frequency
+    const moodAnalysis = moodData.reduce((acc, mood) => {
+      if (!acc[mood.mood_type]) {
+        acc[mood.mood_type] = {
+          totalIntensity: 0,
+          occurrences: 0,
+          maxIntensity: 0
+        };
+      }
+      acc[mood.mood_type].totalIntensity += mood.intensity;
+      acc[mood.mood_type].occurrences += 1;
+      acc[mood.mood_type].maxIntensity = Math.max(acc[mood.mood_type].maxIntensity, mood.intensity);
+      return acc;
+    }, {} as Record<string, { totalIntensity: number; occurrences: number; maxIntensity: number }>);
+
+    // Calculate weighted scores for each mood
+    const moodScores = Object.entries(moodAnalysis).map(([mood, data]) => {
+      const averageIntensity = data.totalIntensity / data.occurrences;
+      // Weight based on both frequency and intensity
+      const frequencyWeight = data.occurrences / moodData.length;
+      const intensityWeight = averageIntensity / 5; // normalize to 0-1 scale
+      const weightedScore = (frequencyWeight + intensityWeight) * 5; // Scale to 0-10
+
+      return {
+        mood,
+        score: Math.min(10, weightedScore * 2), // Ensure max is 10
+        maxIntensity: data.maxIntensity,
+        frequency: data.occurrences
+      };
+    });
+
+    // Find the mood with the highest weighted score
+    const dominantMood = moodScores.reduce((prev, current) => 
+      current.score > prev.score ? current : prev
+    );
+
+    return {
+      mood: dominantMood.mood,
+      score: Math.round(dominantMood.score * 10) / 10,
+      intensity: dominantMood.score >= 7.5 ? 'Very High' :
+                dominantMood.score >= 5 ? 'High' :
+                dominantMood.score >= 2.5 ? 'Moderate' : 'Low'
+    };
+  };
+
+  const getEmotionColor = (emotion: string) => {
+    const colors: Record<string, string> = {
+      'Happy': '#34d399',
+      'Afraid': '#818cf8',
+      'Angry': '#ef4444',
+      'Stressed': '#f59e0b',
+      'Confused': '#a78bfa',
+      'Disappointed': '#6b7280'
+    };
+    return colors[emotion] || '#6b7280';
+  };
+
+  const weeklyMoodSummary = getMostIntenseMood(moodData);
+  const monthlyMoodSummary = getMostIntenseMood(monthlyMoodData);
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>
@@ -147,6 +268,46 @@ export default function HomeScreen() {
       <Text style={styles.welcome}>
         Welcome {name}! We're here to support you.
       </Text>
+
+      <View style={styles.summaryContainer}>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>This Week's Dominant Mood</Text>
+          {weeklyMoodSummary ? (
+            <>
+              <Text style={[styles.moodHighlight, { backgroundColor: getEmotionColor(weeklyMoodSummary.mood) }]}>
+                {weeklyMoodSummary.mood}
+              </Text>
+              <Text style={styles.summaryText}>
+                Intensity: {weeklyMoodSummary.intensity}
+              </Text>
+              <Text style={styles.summarySubtext}>
+                ({weeklyMoodSummary.score}/10)
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.noDataText}>No data available</Text>
+          )}
+        </View>
+
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>This Month's Dominant Mood</Text>
+          {monthlyMoodSummary ? (
+            <>
+              <Text style={[styles.moodHighlight, { backgroundColor: getEmotionColor(monthlyMoodSummary.mood) }]}>
+                {monthlyMoodSummary.mood}
+              </Text>
+              <Text style={styles.summaryText}>
+                Intensity: {monthlyMoodSummary.intensity}
+              </Text>
+              <Text style={styles.summarySubtext}>
+                ({monthlyMoodSummary.score}/10)
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.noDataText}>No data available</Text>
+          )}
+        </View>
+      </View>
 
       {radarChartData.length > 0 && (
         <View style={styles.chartContainer}>
@@ -173,20 +334,46 @@ export default function HomeScreen() {
 
       {lineChartData && (
         <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Mood Trends Over Time</Text>
+          <Text style={styles.chartTitle}>Weekly Mood Trends</Text>
           <LineChart
             data={lineChartData}
             width={screenWidth - 40}
-            height={250}
+            height={220}
             chartConfig={{
               backgroundGradientFrom: "#f9f9f9",
               backgroundGradientTo: "#f9f9f9",
               decimalPlaces: 1,
-              color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+              color: (opacity = 1) => `rgba(52, 211, 153, ${opacity})`,
               labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
               style: { borderRadius: 16 },
             }}
             style={styles.chart}
+          />
+        </View>
+      )}
+
+      {monthlyChartData && (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Monthly Mood Trends</Text>
+          <LineChart
+            data={monthlyChartData}
+            width={screenWidth - 40}
+            height={220}
+            chartConfig={{
+              backgroundGradientFrom: "#f9f9f9",
+              backgroundGradientTo: "#f9f9f9",
+              decimalPlaces: 1,
+              color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+              style: { borderRadius: 16 },
+              propsForDots: {
+                r: "4",
+                strokeWidth: "2",
+                stroke: "#8641f4"
+              }
+            }}
+            style={styles.chart}
+            bezier
           />
         </View>
       )}
@@ -288,5 +475,50 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#1C7F56",
     textAlign: "center",
+  },
+  summaryContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '90%',
+    marginVertical: 10,
+  },
+  summaryCard: {
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+    width: '48%',
+    alignItems: 'center',
+  },
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  moodHighlight: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginVertical: 8,
+    textAlign: 'center',
+  },
+  summaryText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
+  summarySubtext: {
+    fontSize: 11,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 2,
   },
 });
