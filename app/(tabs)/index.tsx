@@ -311,7 +311,7 @@ export default function HomeScreen() {
 
       {radarChartData.length > 0 && (
         <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Mood Distribution</Text>
+          <Text style={styles.chartTitle}>Latest Mood Distribution</Text>
           <RadarChart
             data={radarChartData}
             maxValue={5}
