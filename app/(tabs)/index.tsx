@@ -1,4 +1,13 @@
-import { View, Text, StyleSheet, ScrollView, Dimensions } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Dimensions,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+} from "react-native";
 import { useAuth } from "../../context/AuthContext";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
@@ -11,11 +20,79 @@ interface MoodData {
   tracked_at: string;
 }
 
+const RatingModal = ({ 
+  visible, 
+  onClose, 
+  onSubmit, 
+  rating, 
+  setRating, 
+  feedback, 
+  setFeedback 
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onSubmit: () => void;
+  rating: number;
+  setRating: (rating: number) => void;
+  feedback: string;
+  setFeedback: (feedback: string) => void;
+}) => (
+  <Modal
+    animationType="slide"
+    transparent={true}
+    visible={visible}
+    onRequestClose={onClose}
+  >
+    <View style={styles.modalContainer}>
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Rate Your Experience</Text>
+        <View style={styles.starsContainer}>
+          {[1, 2, 3, 4, 5].map((star) => (
+            <TouchableOpacity
+              key={star}
+              onPress={() => setRating(star)}
+            >
+              <Text style={[styles.star, rating >= star && styles.starSelected]}>
+                ★
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TextInput
+          style={styles.feedbackInput}
+          placeholder="Additional feedback (optional)"
+          value={feedback}
+          onChangeText={setFeedback}
+          multiline
+        />
+        <View style={styles.modalButtons}>
+          <TouchableOpacity
+            style={[styles.modalButton, styles.cancelButton]}
+            onPress={onClose}
+          >
+            <Text style={styles.buttonText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modalButton, styles.submitButton]}
+            onPress={onSubmit}
+          >
+            <Text style={styles.buttonText}>Submit</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  </Modal>
+);
+
 export default function HomeScreen() {
   const { session } = useAuth();
   const [moodData, setMoodData] = useState<MoodData[] | null>(null);
   const [name, setName] = useState("User");
   const [monthlyMoodData, setMonthlyMoodData] = useState<MoodData[] | null>(null);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [feedback, setFeedback] = useState('');
+  const [userRating, setUserRating] = useState<{ rating: number; feedback: string } | null>(null);
 
   useEffect(() => {
     const getMoodData = async () => {
@@ -48,9 +125,24 @@ export default function HomeScreen() {
     setName(fetchedName);
   };
 
-  if (session?.user.id) {
-    getUserName();
-  }
+  const getUserRating = async () => {
+    const { data, error } = await supabase
+      .from('app_ratings')
+      .select('rating, feedback')
+      .eq('user_id', session?.user.id)
+      .single();
+
+    if (data) {
+      setUserRating(data);
+    }
+  };
+
+  useEffect(() => {
+    if (session?.user.id) {
+      getUserName();
+      getUserRating();
+    }
+  }, [session?.user.id]);
 
   async function fetchLatestMoodTrackerData(): Promise<MoodData[] | null> {
     const now = new Date();
@@ -109,6 +201,31 @@ export default function HomeScreen() {
     }
     return user.name;
   }
+
+  const submitRating = async () => {
+    if (!rating || rating < 1 || rating > 5) {
+      alert('Please select a rating between 1 and 5');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('app_ratings')
+      .upsert({
+        user_id: session?.user.id,
+        rating,
+        feedback
+      })
+      .select();
+
+    if (error) {
+      console.error('Error submitting rating:', error);
+      alert('Failed to submit rating');
+    } else {
+      setUserRating({ rating, feedback });
+      setShowRatingModal(false);
+      alert('Thank you for your feedback!');
+    }
+  };
 
   const screenWidth = Dimensions.get("window").width;
 
@@ -378,6 +495,30 @@ export default function HomeScreen() {
         </View>
       )}
 
+      <TouchableOpacity
+        style={styles.ratingButton}
+        onPress={() => setShowRatingModal(true)}
+      >
+        <Text style={styles.ratingButtonText}>
+          {userRating ? 'Update Your Rating' : 'Rate Our App'}
+        </Text>
+        {userRating && (
+          <Text style={styles.currentRating}>
+            Your rating: {userRating.rating}/5
+          </Text>
+        )}
+      </TouchableOpacity>
+
+      <RatingModal
+        visible={showRatingModal}
+        onClose={() => setShowRatingModal(false)}
+        onSubmit={submitRating}
+        rating={rating}
+        setRating={setRating}
+        feedback={feedback}
+        setFeedback={setFeedback}
+      />
+
       <View style={styles.moodList}>
         {moodData && moodData.length > 0 ? (
           moodData.map((mood, index) => (
@@ -520,5 +661,85 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginTop: 2,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 12,
+    width: '80%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  star: {
+    fontSize: 40,
+    color: '#ddd',
+    marginHorizontal: 5,
+  },
+  starSelected: {
+    color: '#FFD700',
+  },
+  feedbackInput: {
+    width: '100%',
+    height: 100,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 20,
+    textAlignVertical: 'top',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  modalButton: {
+    padding: 10,
+    borderRadius: 8,
+    width: '45%',
+  },
+  cancelButton: {
+    backgroundColor: '#6b7280',
+  },
+  submitButton: {
+    backgroundColor: '#34d399',
+  },
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  ratingButton: {
+    backgroundColor: '#34d399',
+    padding: 15,
+    borderRadius: 12,
+    width: '90%',
+    marginVertical: 10,
+    alignItems: 'center',
+  },
+  ratingButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  currentRating: {
+    color: 'white',
+    fontSize: 14,
+    marginTop: 5,
   },
 });
