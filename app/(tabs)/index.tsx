@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { RadarChart } from "@salmonco/react-native-radar-chart";
 import { LineChart } from "react-native-chart-kit";
+import dayjs from 'dayjs';
 
 interface MoodData {
   mood_type: string;
@@ -137,10 +138,56 @@ export default function HomeScreen() {
     }
   };
 
+  const fetchAppointments = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.error("No session found");
+      return;
+    }
+  
+    const userId = session.user.id;
+    const currentDate = dayjs().format('YYYY-MM-DD'); // Get the current date in the format 'YYYY-MM-DD'
+  
+    console.log('Fetching appointments for user ID:', userId); // Add this line to log the user ID
+  
+    const { data, error } = await supabase
+      .from('appointments')
+      .select(`
+        appointment_id,
+        user_id,
+        counselor_id,
+        availability_schedule_id,
+        form_id,
+        response_id,
+        status,
+        appointment_type,
+        availability_schedules (
+          date,
+          start_time,
+          end_time
+        ),
+        users!appointments_user_id_fkey (
+          name
+        )
+      `)
+      .eq('status', 'pending')
+      .eq('user_id', userId)
+      .gte('availability_schedules.date', currentDate); // Filter appointments by date
+  
+    if (error) {
+      console.error('Error fetching appointments:', error.message);
+      return;
+    }
+  
+    console.log('Fetched appointments:', data); // Add this line to log the fetched appointments
+    // setAppointments(data); // Uncomment and implement setAppointments if needed
+  };
+
   useEffect(() => {
     if (session?.user.id) {
       getUserName();
       getUserRating();
+      fetchAppointments(); // Fetch appointments when the session user id is available
     }
   }, [session?.user.id]);
 
