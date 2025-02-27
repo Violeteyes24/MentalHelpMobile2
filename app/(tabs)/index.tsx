@@ -159,7 +159,8 @@ export default function HomeScreen() {
       .eq("user_id", session?.user.id)
       .gte("tracked_at", startOfWeek.toISOString())
       .lte("tracked_at", endOfWeek.toISOString())
-      .order("tracked_at", { ascending: true });
+      .order("tracked_at", { ascending: true })
+      .limit(6);
   
     if (error) {
       console.error("Error fetching mood tracker data:", error);
@@ -378,122 +379,190 @@ export default function HomeScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>
-        Mental<Text style={styles.highlight}>Help</Text>
-      </Text>
-      <Text style={styles.subtitle}>Your mental health companion</Text>
-      <Text style={styles.welcome}>
-        Welcome {name}! We're here to support you.
-      </Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>
+          Mental<Text style={styles.highlight}>Help</Text>
+        </Text>
+        <Text style={styles.subtitle}>Your mental health companion</Text>
+        <Text style={styles.welcome}>
+          Welcome back, <Text style={styles.userName}>{name}</Text>
+        </Text>
+      </View>
 
       <View style={styles.summaryContainer}>
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>This Week's Dominant Mood</Text>
+          <Text style={styles.summaryTitle}>This Week</Text>
           {weeklyMoodSummary ? (
             <>
               <Text style={[styles.moodHighlight, { backgroundColor: getEmotionColor(weeklyMoodSummary.mood) }]}>
                 {weeklyMoodSummary.mood}
               </Text>
-              <Text style={styles.summaryText}>
-                Intensity: {weeklyMoodSummary.intensity}
-              </Text>
-              <Text style={styles.summarySubtext}>
-                ({weeklyMoodSummary.score}/10)
+              <View style={styles.intensityContainer}>
+                <Text style={styles.intensityLabel}>Intensity</Text>
+                <View style={styles.intensityBadge}>
+                  <Text style={styles.intensityText}>{weeklyMoodSummary.intensity}</Text>
+                </View>
+              </View>
+              <Text style={styles.scoreText}>
+                Score: {weeklyMoodSummary.score}/10
               </Text>
             </>
           ) : (
-            <Text style={styles.noDataText}>No data available</Text>
+            <View style={styles.noDataContainer}>
+              <Text style={styles.noDataText}>No data available</Text>
+            </View>
           )}
         </View>
 
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>This Month's Dominant Mood</Text>
+          <Text style={styles.summaryTitle}>This Month</Text>
           {monthlyMoodSummary ? (
             <>
               <Text style={[styles.moodHighlight, { backgroundColor: getEmotionColor(monthlyMoodSummary.mood) }]}>
                 {monthlyMoodSummary.mood}
               </Text>
-              <Text style={styles.summaryText}>
-                Intensity: {monthlyMoodSummary.intensity}
-              </Text>
-              <Text style={styles.summarySubtext}>
-                ({monthlyMoodSummary.score}/10)
+              <View style={styles.intensityContainer}>
+                <Text style={styles.intensityLabel}>Intensity</Text>
+                <View style={styles.intensityBadge}>
+                  <Text style={styles.intensityText}>{monthlyMoodSummary.intensity}</Text>
+                </View>
+              </View>
+              <Text style={styles.scoreText}>
+                Score: {monthlyMoodSummary.score}/10
               </Text>
             </>
           ) : (
-            <Text style={styles.noDataText}>No data available</Text>
+            <View style={styles.noDataContainer}>
+              <Text style={styles.noDataText}>No data available</Text>
+            </View>
           )}
         </View>
       </View>
 
       {radarChartData.length > 0 && (
         <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Latest Mood Distribution</Text>
-          <RadarChart
-            data={radarChartData}
-            maxValue={5}
-            gradientColor={{
-              startColor: "#34d399",
-              endColor: "#e1ede3",
-              count: 5,
-            }}
-            stroke={["#A3D9A5", "#68C48E", "#34D399", "#1C7F56", "#0B5A3B"]}
-            strokeWidth={[1, 1, 1, 1, 1]}
-            strokeOpacity={[1, 1, 1, 1, 0.2]}
-            labelColor="#433D3A"
-            dataFillColor="#34d399"
-            dataFillOpacity={0.8}
-            dataStroke="salmon"
-            dataStrokeWidth={2}
-          />
+          <Text style={styles.chartTitle}>Mood Distribution</Text>
+          <View style={styles.chartWrapper}>
+            <RadarChart
+              data={radarChartData}
+              maxValue={5}
+              gradientColor={{
+                startColor: "#34d399",
+                endColor: "#e1ede3",
+                count: 5,
+              }}
+              stroke={["#A3D9A5", "#68C48E", "#34D399", "#1C7F56", "#0B5A3B"]}
+              strokeWidth={[1, 1, 1, 1, 1]}
+              strokeOpacity={[1, 1, 1, 1, 0.2]}
+              labelColor="#433D3A"
+              dataFillColor="#34d399"
+              dataFillOpacity={0.8}
+              dataStroke="rgba(52, 211, 153, 0.8)"
+              dataStrokeWidth={2}
+            />
+          </View>
         </View>
       )}
 
       {lineChartData && (
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Weekly Mood Trends</Text>
-          <LineChart
-            data={lineChartData}
-            width={screenWidth - 40}
-            height={220}
-            chartConfig={{
-              backgroundGradientFrom: "#f9f9f9",
-              backgroundGradientTo: "#f9f9f9",
-              decimalPlaces: 1,
-              color: (opacity = 1) => `rgba(52, 211, 153, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-              style: { borderRadius: 16 },
-            }}
-            style={styles.chart}
-          />
+          <View style={styles.chartWrapper}>
+            <LineChart
+              data={lineChartData}
+              width={screenWidth - 40}
+              height={220}
+              chartConfig={{
+                backgroundGradientFrom: "#ffffff",
+                backgroundGradientTo: "#ffffff",
+                decimalPlaces: 1,
+                color: (opacity = 1) => `rgba(52, 211, 153, ${opacity})`,
+                labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                style: { borderRadius: 16 },
+                propsForDots: {
+                  r: "5",
+                  strokeWidth: "2",
+                  stroke: "#34d399"
+                }
+              }}
+              style={styles.chart}
+              bezier
+            />
+          </View>
         </View>
       )}
 
       {monthlyChartData && (
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Monthly Mood Trends</Text>
-          <LineChart
-            data={monthlyChartData}
-            width={screenWidth - 40}
-            height={220}
-            chartConfig={{
-              backgroundGradientFrom: "#f9f9f9",
-              backgroundGradientTo: "#f9f9f9",
-              decimalPlaces: 1,
-              color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-              style: { borderRadius: 16 },
-              propsForDots: {
-                r: "4",
-                strokeWidth: "2",
-                stroke: "#8641f4"
-              }
-            }}
-            style={styles.chart}
-            bezier
-          />
+          <View style={styles.chartWrapper}>
+            <LineChart
+              data={monthlyChartData}
+              width={screenWidth - 40}
+              height={220}
+              chartConfig={{
+                backgroundGradientFrom: "#ffffff",
+                backgroundGradientTo: "#ffffff",
+                decimalPlaces: 1,
+                color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
+                labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                style: { borderRadius: 16 },
+                propsForDots: {
+                  r: "5",
+                  strokeWidth: "2",
+                  stroke: "#8641f4"
+                }
+              }}
+              style={styles.chart}
+              bezier
+            />
+          </View>
         </View>
       )}
+
+      <View style={styles.sectionDivider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.sectionTitle}>Recent Mood Entries</Text>
+        <View style={styles.dividerLine} />
+      </View>
+
+      <View style={styles.moodList}>
+        {moodData && moodData.length > 0 ? (
+          moodData.map((mood, index) => (
+            <View key={index} style={styles.moodItemCard}>
+              <View style={[styles.moodIndicator, { backgroundColor: getEmotionColor(mood.mood_type) }]} />
+              <View style={styles.moodItemContent}>
+                <Text style={styles.moodText}>{mood.mood_type}</Text>
+                <View style={styles.moodIntensityContainer}>
+                  <Text style={styles.moodIntensityLabel}>Intensity</Text>
+                  <View style={styles.intensityBarContainer}>
+                    <View 
+                      style={[
+                        styles.intensityBar, 
+                        { width: `${(mood.intensity / 5) * 100}%`, backgroundColor: getEmotionColor(mood.mood_type) }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.moodIntensityValue}>{mood.intensity}/5</Text>
+                </View>
+                <Text style={styles.moodDate}>
+                  {new Date(mood.tracked_at).toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </Text>
+              </View>
+            </View>
+          ))
+        ) : (
+          <View style={styles.noEntriesContainer}>
+            <Text style={styles.noEntriesText}>No mood entries yet</Text>
+            <Text style={styles.noEntriesSubtext}>Track your first mood to see data here</Text>
+          </View>
+        )}
+      </View>
 
       <TouchableOpacity
         style={styles.ratingButton}
@@ -518,21 +587,6 @@ export default function HomeScreen() {
         feedback={feedback}
         setFeedback={setFeedback}
       />
-
-      <View style={styles.moodList}>
-        {moodData && moodData.length > 0 ? (
-          moodData.map((mood, index) => (
-            <View key={index} style={styles.moodItem}>
-              <Text style={styles.moodText}>{mood.mood_type}</Text>
-              <Text style={styles.moodIntensity}>
-                Intensity: {mood.intensity}
-              </Text>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.noDataText}>No mood data available</Text>
-        )}
-      </View>
     </ScrollView>
   );
 }
@@ -541,205 +595,351 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     alignItems: "center",
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#f5f7fa",
     paddingVertical: 20,
+    paddingBottom: 40,
+  },
+  header: {
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 20,
+    paddingHorizontal: 20,
   },
   title: {
     fontSize: 42,
     fontWeight: "bold",
     color: "#1f2937",
     textAlign: "center",
+    marginBottom: 5,
+    fontFamily: "System",
   },
   highlight: {
     color: "#fff",
     backgroundColor: "#34d399",
-    borderRadius: 6,
+    borderRadius: 8,
     paddingHorizontal: 8,
+    paddingVertical: 2,
+    overflow: "hidden",
   },
   subtitle: {
     fontSize: 18,
-    color: "#666",
+    color: "#64748b",
     marginBottom: 20,
     textAlign: "center",
-  },
-  chartContainer: {
-    width: "90%",
-    backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-    marginVertical: 10,
-  },
-  chartTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 10,
-    textAlign: "center",
-    color: "#333",
-  },
-  chart: {
-    borderRadius: 16,
-  },
-  moodList: {
-    width: "90%",
-  },
-  moodItem: {
-    backgroundColor: "#e0f2f1",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  moodText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#1C7F56",
-  },
-  moodIntensity: {
-    fontSize: 16,
-    color: "#555",
-  },
-  noDataText: {
-    fontSize: 16,
-    color: "#999",
-    textAlign: "center",
-    marginTop: 10,
+    fontFamily: "System",
   },
   welcome: {
     fontSize: 18,
+    color: "#475569",
+    textAlign: "center",
+    fontFamily: "System",
+  },
+  userName: {
     fontWeight: "bold",
     color: "#1C7F56",
-    textAlign: "center",
   },
   summaryContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '90%',
-    marginVertical: 10,
+    marginVertical: 15,
   },
   summaryCard: {
     backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
+    padding: 16,
+    borderRadius: 16,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
     width: '48%',
     alignItems: 'center',
   },
   summaryTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
+    color: '#1e293b',
+    marginBottom: 12,
     textAlign: 'center',
+    fontFamily: "System",
   },
   moodHighlight: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
     marginVertical: 8,
     textAlign: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  summaryText: {
+  intensityContainer: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  intensityLabel: {
     fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
+    color: '#64748b',
+    marginBottom: 4,
+    fontFamily: "System",
   },
-  summarySubtext: {
-    fontSize: 11,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 2,
+  intensityBadge: {
+    backgroundColor: '#f1f5f9',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 20,
   },
-  modalContainer: {
-    flex: 1,
+  intensityText: {
+    fontSize: 14,
+    color: '#334155',
+    fontWeight: '600',
+  },
+  scoreText: {
+    fontSize: 14,
+    color: '#64748b',
+    marginTop: 8,
+    fontFamily: "System",
+  },
+  noDataContainer: {
+    height: 100,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 12,
-    width: '80%',
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  starsContainer: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  star: {
-    fontSize: 40,
-    color: '#ddd',
-    marginHorizontal: 5,
-  },
-  starSelected: {
-    color: '#FFD700',
-  },
-  feedbackInput: {
-    width: '100%',
-    height: 100,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 20,
-    textAlignVertical: 'top',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  modalButton: {
-    padding: 10,
-    borderRadius: 8,
-    width: '45%',
-  },
-  cancelButton: {
-    backgroundColor: '#6b7280',
-  },
-  submitButton: {
-    backgroundColor: '#34d399',
-  },
-  buttonText: {
-    color: 'white',
+  noDataText: {
+    fontSize: 14,
+    color: '#94a3b8',
     textAlign: 'center',
+    fontFamily: "System",
+  },
+  chartContainer: {
+    width: "90%",
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 16,
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+    marginVertical: 12,
+  },
+  chartWrapper: {
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  chartTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 15,
+    textAlign: "center",
+    color: "#1e293b",
+    fontFamily: "System",
+  },
+  chart: {
+    borderRadius: 16,
+    marginVertical: 8,
+  },
+  sectionDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '90%',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#cbd5e1',
+  },
+  sectionTitle: {
+    paddingHorizontal: 15,
     fontSize: 16,
     fontWeight: 'bold',
+    color: '#64748b',
+    fontFamily: "System",
+  },
+  moodList: {
+    width: "90%",
+  },
+  moodItemCard: {
+    flexDirection: 'row',
+    backgroundColor: "#fff",
+    padding: 0,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  moodIndicator: {
+    width: 8,
+    height: 'auto',
+  },
+  moodItemContent: {
+    flex: 1,
+    padding: 16,
+  },
+  moodText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#334155",
+    marginBottom: 8,
+    fontFamily: "System",
+  },
+  moodIntensityContainer: {
+    marginVertical: 8,
+  },
+  moodIntensityLabel: {
+    fontSize: 12,
+    color: "#64748b",
+    marginBottom: 6,
+    fontFamily: "System",
+  },
+  intensityBarContainer: {
+    height: 8,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 4,
+    width: '100%',
+    marginBottom: 4,
+  },
+  intensityBar: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  moodIntensityValue: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'right',
+    fontFamily: "System",
+  },
+  moodDate: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 8,
+    fontFamily: "System",
+  },
+  noEntriesContainer: {
+    backgroundColor: '#fff',
+    padding: 30,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  noEntriesText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#64748b',
+    marginBottom: 8,
+    fontFamily: "System",
+  },
+  noEntriesSubtext: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
+    fontFamily: "System",
   },
   ratingButton: {
     backgroundColor: '#34d399',
-    padding: 15,
+    padding: 16,
     borderRadius: 12,
     width: '90%',
-    marginVertical: 10,
+    marginTop: 24,
+    marginBottom: 12,
     alignItems: 'center',
+    shadowColor: '#155e3e',
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   ratingButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+    fontFamily: "System",
   },
   currentRating: {
     color: 'white',
     fontSize: 14,
     marginTop: 5,
+    fontFamily: "System",
   },
-});
+    modalContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      padding: 20,
+    },
+    modalContent: {
+      backgroundColor: 'white',
+      borderRadius: 12,
+      padding: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 5,
+    },
+    modalTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginBottom: 20,
+      color: '#1e293b',
+    },
+    starsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginBottom: 20,
+    },
+    star: {
+      fontSize: 40,
+      color: '#cbd5e1',
+      marginHorizontal: 5,
+    },
+    starSelected: {
+      color: '#f59e0b',
+    },
+    feedbackInput: {
+      borderWidth: 1,
+      borderColor: '#cbd5e1',
+      borderRadius: 8,
+      padding: 10,
+      marginBottom: 20,
+      minHeight: 100,
+      textAlignVertical: 'top',
+    },
+    modalButtons: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    modalButton: {
+      flex: 1,
+      padding: 15,
+      borderRadius: 8,
+      marginHorizontal: 5,
+    },
+    cancelButton: {
+      backgroundColor: '#ef4444',
+    },
+    submitButton: {
+      backgroundColor: '#34d399',
+    },
+    buttonText: {
+      color: 'white',
+      textAlign: 'center',
+      fontWeight: 'bold',
+    }
+  });
