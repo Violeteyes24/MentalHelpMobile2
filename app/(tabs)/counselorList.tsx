@@ -7,6 +7,7 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "expo-router";
@@ -69,15 +70,17 @@ export default function CounselorList() {
   }
 
   return (
-    <View style={{ marginTop: "10%" }}>
-      <Text style={styles.title}>Counselor's List</Text>
-      <FlatList
-        data={counselors}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.list}
-      />
-    </View>
+    <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+      <View style={{ marginTop: "10%" }}>
+        <Text style={styles.title}>Counselor's List</Text>
+        <FlatList
+          data={counselors}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+        />
+      </View>
+    </ScrollView>
   );
 }
 
