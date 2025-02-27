@@ -248,3 +248,5 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
 })
+
+// finally otp worked
