@@ -56,34 +56,60 @@ const EmotionAnalysis: React.FC = () => {
     try {
       setLoading(true);
 
+      if (!session?.user.id) {
+        throw new Error("No user session found");
+      }
+
+      // Prepare the data
+      const now = new Date().toISOString();
       const insertData = Object.entries(emotions).map(
         ([mood_type, intensity]) => ({
           mood_type,
           intensity: Math.min(10, Math.max(1, Math.round(intensity))),
-          user_id: session?.user.id,
+          user_id: session.user.id,
+          tracked_at: now
         })
       );
 
       console.log("Data to Insert:", insertData);
 
+      // Single insert operation
       const { data, error } = await supabase
         .from("mood_tracker")
-        .insert(insertData)
-        .select();
+        .insert(insertData);
 
       if (error) {
-        console.error("Insert Error:", error);
+        console.error("Insert Error Details:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
         throw error;
       }
 
-      console.log("Insert Success:", data);
+      // If successful
+      console.log("Insert Success");
+      Alert.alert(
+        "Success",
+        "Your mood has been tracked successfully!",
+        [{ text: "OK", onPress: () => setModalVisible(true) }]
+      );
+      
     } catch (error) {
+      console.error("Error in insertMoodTrackerData:", error);
       if (error instanceof Error) {
-        Alert.alert("Error", error.message);
+        Alert.alert(
+          "Error",
+          `Failed to save mood: ${error.message}. Please try again.`
+        );
+      } else {
+        Alert.alert(
+          "Error",
+          "An unknown error occurred while saving your mood."
+        );
       }
     } finally {
       setLoading(false);
-      setModalVisible(true); // Show modal after insertion
     }
   }
 
