@@ -114,28 +114,34 @@ export default function HomeScreen() {
 
   useEffect(() => {
     const getMoodData = async () => {
+      console.log('Fetching mood data for user:', session?.user.id);
       const weekData = await fetchLatestMoodTrackerData();
       const monthData = await fetchMonthlyMoodTrackerData();
+      console.log('Week data fetched:', weekData);
+      console.log('Month data fetched:', monthData);
       setMoodData(weekData);
       setMonthlyMoodData(monthData);
     };
 
-    getMoodData();
+    if (session?.user.id) {
+      getMoodData();
 
-    const channel = supabase.channel('custom-all-channel')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'mood_tracker' },
-        (payload) => {
-          console.log('Change received!', payload);
-          getMoodData();
-        }
-      )
-      .subscribe();
+      const channel = supabase.channel('custom-all-channel')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'mood_tracker' },
+          (payload) => {
+            console.log('Mood tracker change received:', payload); // needs to trigger a re-fetch of mood data
+            getMoodData();
+          }
+        )
+        .subscribe();
 
-    return () => {
-      channel.unsubscribe();
-    };
+      return () => {
+        console.log('Cleaning up mood tracker subscription');
+        channel.unsubscribe();
+      };
+    }
   }, [session?.user.id]);
 
   const getUserName = async () => {
@@ -245,24 +251,30 @@ export default function HomeScreen() {
     const now = new Date();
     const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
     startOfWeek.setHours(0, 0, 0, 0);
-
+    
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(endOfWeek.getDate() + 6);
     endOfWeek.setHours(23, 59, 59, 999);
 
+    console.log('Fetching weekly mood data between:', {
+      start: startOfWeek.toISOString(),
+      end: endOfWeek.toISOString()
+    });
+  
     let { data: mood_tracker, error } = await supabase
       .from("mood_tracker")
       .select("mood_type, intensity, tracked_at")
       .eq("user_id", session?.user.id)
       .gte("tracked_at", startOfWeek.toISOString())
       .lte("tracked_at", endOfWeek.toISOString())
-      .order("tracked_at", { ascending: true })
-      .limit(6);
-
+      .order("tracked_at", { ascending: false });
+  
     if (error) {
-      console.error("Error fetching mood tracker data:", error);
+      console.error("Error fetching weekly mood tracker data:", error);
       return null;
     }
+    
+    console.log('Weekly mood data fetched:', mood_tracker);
     return mood_tracker || null;
   }
 
@@ -271,18 +283,25 @@ export default function HomeScreen() {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
+    console.log('Fetching monthly mood data between:', {
+      start: startOfMonth.toISOString(),
+      end: endOfMonth.toISOString()
+    });
+
     let { data: mood_tracker, error } = await supabase
       .from("mood_tracker")
       .select("mood_type, intensity, tracked_at")
       .eq("user_id", session?.user.id)
       .gte("tracked_at", startOfMonth.toISOString())
       .lte("tracked_at", endOfMonth.toISOString())
-      .order("tracked_at", { ascending: true });
+      .order("tracked_at", { ascending: false });
 
     if (error) {
       console.error("Error fetching monthly mood tracker data:", error);
       return null;
     }
+
+    console.log('Monthly mood data fetched:', mood_tracker);
     return mood_tracker || null;
   }
 
