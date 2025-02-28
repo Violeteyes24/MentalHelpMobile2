@@ -14,6 +14,7 @@ import { supabase } from "../../lib/supabase";
 import { RadarChart } from "@salmonco/react-native-radar-chart";
 import { LineChart } from "react-native-chart-kit";
 import dayjs from 'dayjs';
+import { Icon } from "@rneui/themed";
 
 interface MoodData {
   mood_type: string;
@@ -21,14 +22,29 @@ interface MoodData {
   tracked_at: string;
 }
 
-const RatingModal = ({ 
-  visible, 
-  onClose, 
-  onSubmit, 
-  rating, 
-  setRating, 
-  feedback, 
-  setFeedback 
+interface AppointmentData {
+  appointment_id: string;
+  appointment_type: string;
+  status: string;
+  reason?: string;
+  availability_schedules: {
+    date: string;
+    start_time: string;
+    end_time: string;
+  }[];
+  users: {
+    name: string;
+  };
+}
+
+const RatingModal = ({
+  visible,
+  onClose,
+  onSubmit,
+  rating,
+  setRating,
+  feedback,
+  setFeedback
 }: {
   visible: boolean;
   onClose: () => void;
@@ -94,6 +110,7 @@ export default function HomeScreen() {
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState('');
   const [userRating, setUserRating] = useState<{ rating: number; feedback: string } | null>(null);
+  const [upcomingAppointments, setUpcomingAppointments] = useState<AppointmentData[]>([]);
 
   useEffect(() => {
     const getMoodData = async () => {
@@ -144,12 +161,12 @@ export default function HomeScreen() {
       console.error("No session found");
       return;
     }
-  
+
     const userId = session.user.id;
     const currentDate = dayjs().format('YYYY-MM-DD'); // Get the current date in the format 'YYYY-MM-DD'
-  
+
     console.log('Fetching appointments for user ID:', userId); // Add this line to log the user ID
-  
+
     const { data, error } = await supabase
       .from('appointments')
       .select(`
@@ -173,14 +190,46 @@ export default function HomeScreen() {
       .eq('status', 'pending')
       .eq('user_id', userId)
       .gte('availability_schedules.date', currentDate); // Filter appointments by date
-  
+
     if (error) {
       console.error('Error fetching appointments:', error.message);
       return;
     }
-  
+
     console.log('Fetched appointments:', data); // Add this line to log the fetched appointments
     // setAppointments(data); // Uncomment and implement setAppointments if needed
+  };
+
+  const fetchUpcomingAppointments = async () => {
+    const currentDate = new Date().toISOString().split('T')[0];
+
+    const { data, error } = await supabase
+      .from('appointments')
+      .select(`
+        appointment_id,
+        appointment_type,
+        status,
+        reason,
+        availability_schedules (
+          date,
+          start_time,
+          end_time
+        ),
+        users!appointments_counselor_id_fkey (
+          name
+        )
+      `)
+      .eq('user_id', session?.user.id)
+      .eq('status', 'pending')
+      .gte('availability_schedules.date', currentDate)
+      .order('availability_schedules(date)', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching upcoming appointments:', error);
+    } else {
+      setUpcomingAppointments(data?.filter(appointment => appointment.availability_schedules && appointment.availability_schedules.length > 0
+        ) as unknown as AppointmentData[] || []);
+    }
   };
 
   useEffect(() => {
@@ -188,6 +237,7 @@ export default function HomeScreen() {
       getUserName();
       getUserRating();
       fetchAppointments(); // Fetch appointments when the session user id is available
+      fetchUpcomingAppointments(); // Add this line
     }
   }, [session?.user.id]);
 
@@ -195,11 +245,11 @@ export default function HomeScreen() {
     const now = new Date();
     const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
     startOfWeek.setHours(0, 0, 0, 0);
-    
+
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(endOfWeek.getDate() + 6);
     endOfWeek.setHours(23, 59, 59, 999);
-  
+
     let { data: mood_tracker, error } = await supabase
       .from("mood_tracker")
       .select("mood_type, intensity, tracked_at")
@@ -208,7 +258,7 @@ export default function HomeScreen() {
       .lte("tracked_at", endOfWeek.toISOString())
       .order("tracked_at", { ascending: true })
       .limit(6);
-  
+
     if (error) {
       console.error("Error fetching mood tracker data:", error);
       return null;
@@ -317,15 +367,15 @@ export default function HomeScreen() {
 
   const lineChartData = moodData
     ? {
-        labels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-        datasets: [
-          {
-            data: getDayAverages(moodData),
-            color: (opacity = 1) => `rgba(75, 192, 192, ${opacity})`,
-            strokeWidth: 3,
-          },
-        ],
-      }
+      labels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+      datasets: [
+        {
+          data: getDayAverages(moodData),
+          color: (opacity = 1) => `rgba(75, 192, 192, ${opacity})`,
+          strokeWidth: 3,
+        },
+      ],
+    }
     : null;
 
   const getMonthlyAverages = (monthlyData: MoodData[]) => {
@@ -347,7 +397,7 @@ export default function HomeScreen() {
       }
     });
 
-    return Object.values(weeklyAverages).map(data => 
+    return Object.values(weeklyAverages).map(data =>
       data.count > 0 ? Math.round((data.sum / data.count) * 10) / 10 : 0
     );
   };
@@ -396,7 +446,7 @@ export default function HomeScreen() {
     });
 
     // Find the mood with the highest weighted score
-    const dominantMood = moodScores.reduce((prev, current) => 
+    const dominantMood = moodScores.reduce((prev, current) =>
       current.score > prev.score ? current : prev
     );
 
@@ -404,8 +454,8 @@ export default function HomeScreen() {
       mood: dominantMood.mood,
       score: Math.round(dominantMood.score * 10) / 10,
       intensity: dominantMood.score >= 7.5 ? 'Very High' :
-                dominantMood.score >= 5 ? 'High' :
-                dominantMood.score >= 2.5 ? 'Moderate' : 'Low'
+        dominantMood.score >= 5 ? 'High' :
+          dominantMood.score >= 2.5 ? 'Moderate' : 'Low'
     };
   };
 
@@ -423,6 +473,61 @@ export default function HomeScreen() {
 
   const weeklyMoodSummary = getMostIntenseMood(moodData);
   const monthlyMoodSummary = getMostIntenseMood(monthlyMoodData);
+
+  const convertTo12Hour = (time: string) => {
+    const [hours, minutes] = time.split(":").map(Number);
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const hour12 = hours % 12 || 12;
+    return `${hour12}:${minutes.toString().padStart(2, "0")} ${ampm}`;
+  };
+
+  const renderUpcomingAppointments = () => (
+    <>
+      <View style={styles.sectionDivider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.sectionTitle}>Upcoming Appointments</Text>
+        <View style={styles.dividerLine} />
+      </View>
+
+      <View style={styles.appointmentsList}>
+        {upcomingAppointments.length > 0 ? (
+          upcomingAppointments.map((appointment) => (
+            <View key={appointment.appointment_id} style={styles.appointmentCard}>
+              <View style={styles.appointmentHeader}>
+                <Icon name="event" size={20} color="#4a90e2" />
+                <Text style={styles.appointmentDate}>
+                  {new Date(appointment.availability_schedules[0].date).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </Text>
+              </View>
+              <View style={styles.appointmentDetails}>
+                <Text style={styles.appointmentTime}>
+                  {convertTo12Hour(appointment.availability_schedules[0].start_time)} -
+                  {convertTo12Hour(appointment.availability_schedules[0].end_time)}
+                </Text>
+                <Text style={styles.appointmentCounselor}>
+                  with {appointment.users.name}
+                </Text>
+                {appointment.reason && (
+                  <Text style={styles.appointmentReason}>
+                    Reason: {appointment.reason}
+                  </Text>
+                )}
+              </View>
+            </View>
+          ))
+        ) : (
+          <View style={styles.noAppointmentsContainer}>
+            <Text style={styles.noAppointmentsText}>No upcoming appointments</Text>
+          </View>
+        )}
+      </View>
+    </>
+  );
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -567,6 +672,8 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {renderUpcomingAppointments()}
+
       <View style={styles.sectionDivider}>
         <View style={styles.dividerLine} />
         <Text style={styles.sectionTitle}>Recent Mood Entries</Text>
@@ -583,18 +690,18 @@ export default function HomeScreen() {
                 <View style={styles.moodIntensityContainer}>
                   <Text style={styles.moodIntensityLabel}>Intensity</Text>
                   <View style={styles.intensityBarContainer}>
-                    <View 
+                    <View
                       style={[
-                        styles.intensityBar, 
+                        styles.intensityBar,
                         { width: `${(mood.intensity / 5) * 100}%`, backgroundColor: getEmotionColor(mood.mood_type) }
-                      ]} 
+                      ]}
                     />
                   </View>
                   <Text style={styles.moodIntensityValue}>{mood.intensity}/5</Text>
                 </View>
                 <Text style={styles.moodDate}>
-                  {new Date(mood.tracked_at).toLocaleDateString('en-US', { 
-                    month: 'short', 
+                  {new Date(mood.tracked_at).toLocaleDateString('en-US', {
+                    month: 'short',
                     day: 'numeric',
                     hour: '2-digit',
                     minute: '2-digit'
@@ -923,70 +1030,128 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontFamily: "System",
   },
-    modalContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      padding: 20,
-    },
-    modalContent: {
-      backgroundColor: 'white',
-      borderRadius: 12,
-      padding: 20,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 4,
-      elevation: 5,
-    },
-    modalTitle: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      textAlign: 'center',
-      marginBottom: 20,
-      color: '#1e293b',
-    },
-    starsContainer: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      marginBottom: 20,
-    },
-    star: {
-      fontSize: 40,
-      color: '#cbd5e1',
-      marginHorizontal: 5,
-    },
-    starSelected: {
-      color: '#f59e0b',
-    },
-    feedbackInput: {
-      borderWidth: 1,
-      borderColor: '#cbd5e1',
-      borderRadius: 8,
-      padding: 10,
-      marginBottom: 20,
-      minHeight: 100,
-      textAlignVertical: 'top',
-    },
-    modalButtons: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-    },
-    modalButton: {
-      flex: 1,
-      padding: 15,
-      borderRadius: 8,
-      marginHorizontal: 5,
-    },
-    cancelButton: {
-      backgroundColor: '#ef4444',
-    },
-    submitButton: {
-      backgroundColor: '#34d399',
-    },
-    buttonText: {
-      color: 'white',
-      textAlign: 'center',
-      fontWeight: 'bold',
-    }
-  });
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#1e293b',
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  star: {
+    fontSize: 40,
+    color: '#cbd5e1',
+    marginHorizontal: 5,
+  },
+  starSelected: {
+    color: '#f59e0b',
+  },
+  feedbackInput: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 20,
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalButton: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 8,
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: '#ef4444',
+  },
+  submitButton: {
+    backgroundColor: '#34d399',
+  },
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  appointmentsList: {
+    width: '90%',
+    marginBottom: 20,
+  },
+  appointmentCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4a90e2',
+  },
+  appointmentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  appointmentDate: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 8,
+  },
+  appointmentDetails: {
+    marginLeft: 28,
+  },
+  appointmentTime: {
+    fontSize: 15,
+    color: '#4a90e2',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  appointmentCounselor: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  appointmentReason: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  noAppointmentsContainer: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  noAppointmentsText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+});

@@ -30,12 +30,14 @@ export default function AvailabilityCalendar({
   const { session } = useAuth();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<any>(null);
+  const [upcomingAppointments, setUpcomingAppointments] = useState<any[]>([]);
 
   useEffect(() => {
     if (selectedDate) {
       fetchAvailability();
     }
     fetchCounselorDetails();
+    fetchUpcomingAppointments();
 
     const appointmentChannel = supabase
       .channel("custom-appointments-channel")
@@ -47,6 +49,7 @@ export default function AvailabilityCalendar({
           if (selectedDate) {
             fetchAvailability();
           }
+          fetchUpcomingAppointments();
         }
       )
       .subscribe();
@@ -75,6 +78,35 @@ export default function AvailabilityCalendar({
 
     if (error) console.error(error);
     else setCounselorDetails(data);
+  }
+
+  async function fetchUpcomingAppointments() {
+    const currentDate = new Date().toISOString().split('T')[0]; // Get current date in YYYY-MM-DD format
+
+    const { data, error } = await supabase
+      .from('appointments')
+      .select(`
+        *,
+        availability_schedules (
+          date,
+          start_time,
+          end_time
+        ),
+        users!appointments_counselor_id_fkey (
+          name
+        )
+      `)
+      .eq('user_id', session?.user.id)
+      .eq('counselor_id', counselorId)
+      .eq('status', 'pending')
+      .gte('availability_schedules.date', currentDate) // Only fetch appointments from today onwards
+      .order('availability_schedules(date)', { ascending: true }); // Changed to ascending to show earliest first
+
+    if (error) {
+      console.error('Error fetching upcoming appointments:', error);
+    } else {
+      setUpcomingAppointments(data || []);
+    }
   }
 
   const handleDayPress = (day: any) => {
@@ -129,6 +161,7 @@ export default function AvailabilityCalendar({
               `You successfully booked the slot: ${slot.start_time} - ${slot.end_time}`
             );
             fetchAvailability();
+            fetchUpcomingAppointments();
           }
         }
       }
@@ -258,6 +291,52 @@ export default function AvailabilityCalendar({
     </View>
   );
 
+  const renderUpcomingAppointments = () => (
+    <View style={styles.upcomingContainer}>
+      <View style={styles.divider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>Upcoming Appointments</Text>
+        <View style={styles.dividerLine} />
+      </View>
+      
+      {upcomingAppointments.length > 0 ? (
+        upcomingAppointments
+          .filter(appointment => appointment.availability_schedules) // Filter out appointments with null schedules
+          .map((appointment) => (
+            <View key={appointment.appointment_id} style={styles.appointmentCard}>
+              <View style={styles.appointmentHeader}>
+                <Icon name="event" size={20} color="#4a90e2" />
+                <Text style={styles.appointmentDate}>
+                  {new Date(appointment.availability_schedules.date).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </Text>
+              </View>
+              <View style={styles.appointmentDetails}>
+                <Text style={styles.appointmentTime}>
+                  {convertTo12Hour(appointment.availability_schedules.start_time)} - 
+                  {convertTo12Hour(appointment.availability_schedules.end_time)}
+                </Text>
+                <Text style={styles.appointmentCounselor}>
+                  with {appointment.users.name}
+                </Text>
+                {appointment.reason && (
+                  <Text style={styles.appointmentReason}>
+                    Reason: {appointment.reason}
+                  </Text>
+                )}
+              </View>
+            </View>
+          ))
+      ) : (
+        <Text style={styles.noAppointmentsText}>No upcoming appointments</Text>
+      )}
+    </View>
+  );
+
   return (
     <>
       <FlatList
@@ -266,6 +345,7 @@ export default function AvailabilityCalendar({
         renderItem={renderSlot}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={selectedDate ? renderEmptyList : null}
+        ListFooterComponent={renderUpcomingAppointments}
         contentContainerStyle={styles.container}
       />
       <ReasonModal
@@ -469,5 +549,73 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e0e0e0',
+  },
+  dividerText: {
+    paddingHorizontal: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  upcomingContainer: {
+    marginTop: 20,
+  },
+  appointmentCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4a90e2',
+  },
+  appointmentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  appointmentDate: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 8,
+  },
+  appointmentDetails: {
+    marginLeft: 28,
+  },
+  appointmentTime: {
+    fontSize: 15,
+    color: '#4a90e2',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  appointmentCounselor: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  appointmentReason: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  noAppointmentsText: {
+    textAlign: 'center',
+    color: '#666',
+    fontSize: 16,
+    marginTop: 12,
   },
 });
