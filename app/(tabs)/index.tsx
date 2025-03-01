@@ -110,7 +110,7 @@ export default function HomeScreen() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'mood_tracker' },
         (payload) => {
-          console.log('Change received!', payload);
+          console.log('At home page: Change received!', payload);
           getMoodData();
         }
       )
@@ -206,8 +206,8 @@ export default function HomeScreen() {
       .eq("user_id", session?.user.id)
       .gte("tracked_at", startOfWeek.toISOString())
       .lte("tracked_at", endOfWeek.toISOString())
-      .order("tracked_at", { ascending: true })
-      .limit(6);
+      .order("tracked_at", { ascending: false }); // change order to descending
+      // .limit(6); // remove or adjust limit as needed
   
     if (error) {
       console.error("Error fetching mood tracker data:", error);
@@ -277,89 +277,89 @@ export default function HomeScreen() {
 
   const screenWidth = Dimensions.get("window").width;
 
-  const radarChartData = moodData ? (() => {
-    const moodGroups = moodData.reduce((acc, mood) => {
-      if (!acc[mood.mood_type]) {
-        acc[mood.mood_type] = { sum: 0, count: 0 };
-      }
-      acc[mood.mood_type].sum += mood.intensity;
-      acc[mood.mood_type].count += 1;
-      return acc;
-    }, {} as Record<string, { sum: number; count: number }>);
+  // const radarChartData = moodData ? (() => {
+  //   const moodGroups = moodData.reduce((acc, mood) => {
+  //     if (!acc[mood.mood_type]) {
+  //       acc[mood.mood_type] = { sum: 0, count: 0 };
+  //     }
+  //     acc[mood.mood_type].sum += mood.intensity;
+  //     acc[mood.mood_type].count += 1;
+  //     return acc;
+  //   }, {} as Record<string, { sum: number; count: number }>);
 
-    return Object.entries(moodGroups).map(([mood_type, data]) => ({
-      label: mood_type,
-      value: Math.round((data.sum / data.count) * 10) / 10
-    }));
-  })() : [];
+  //   return Object.entries(moodGroups).map(([mood_type, data]) => ({
+  //     label: mood_type,
+  //     value: Math.round((data.sum / data.count) * 10) / 10
+  //   }));
+  // })() : [];
 
-  const getDayAverages = (moodData: MoodData[]) => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const dayAverages = days.reduce((acc, day) => {
-      acc[day] = { sum: 0, count: 0 };
-      return acc;
-    }, {} as Record<string, { sum: number; count: number }>);
+  // const getDayAverages = (moodData: MoodData[]) => {
+  //   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  //   const dayAverages = days.reduce((acc, day) => {
+  //     acc[day] = { sum: 0, count: 0 };
+  //     return acc;
+  //   }, {} as Record<string, { sum: number; count: number }>);
 
-    moodData.forEach(mood => {
-      const date = new Date(mood.tracked_at);
-      const day = days[date.getDay()];
-      if (dayAverages[day]) {
-        dayAverages[day].sum += mood.intensity;
-        dayAverages[day].count += 1;
-      }
-    });
+  //   moodData.forEach(mood => {
+  //     const date = new Date(mood.tracked_at);
+  //     const day = days[date.getDay()];
+  //     if (dayAverages[day]) {
+  //       dayAverages[day].sum += mood.intensity;
+  //       dayAverages[day].count += 1;
+  //     }
+  //   });
 
-    return days.map(day => {
-      const dayData = dayAverages[day];
-      return dayData.count === 0 ? 0 : Math.round((dayData.sum / dayData.count) * 10) / 10;
-    });
-  };
+  //   return days.map(day => {
+  //     const dayData = dayAverages[day];
+  //     return dayData.count === 0 ? 0 : Math.round((dayData.sum / dayData.count) * 10) / 10;
+  //   });
+  // };
 
-  const lineChartData = moodData
-    ? {
-        labels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-        datasets: [
-          {
-            data: getDayAverages(moodData),
-            color: (opacity = 1) => `rgba(75, 192, 192, ${opacity})`,
-            strokeWidth: 3,
-          },
-        ],
-      }
-    : null;
+  // const lineChartData = moodData
+  //   ? {
+  //       labels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  //       datasets: [
+  //         {
+  //           data: getDayAverages(moodData),
+  //           color: (opacity = 1) => `rgba(75, 192, 192, ${opacity})`,
+  //           strokeWidth: 3,
+  //         },
+  //       ],
+  //     }
+  //   : null;
 
-  const getMonthlyAverages = (monthlyData: MoodData[]) => {
-    if (!monthlyData || monthlyData.length === 0) return [];
+  // const getMonthlyAverages = (monthlyData: MoodData[]) => {
+  //   if (!monthlyData || monthlyData.length === 0) return [];
 
-    const weeklyAverages: { [key: number]: { sum: number; count: number } } = {
-      1: { sum: 0, count: 0 },
-      2: { sum: 0, count: 0 },
-      3: { sum: 0, count: 0 },
-      4: { sum: 0, count: 0 }
-    };
+  //   const weeklyAverages: { [key: number]: { sum: number; count: number } } = {
+  //     1: { sum: 0, count: 0 },
+  //     2: { sum: 0, count: 0 },
+  //     3: { sum: 0, count: 0 },
+  //     4: { sum: 0, count: 0 }
+  //   };
 
-    monthlyData.forEach(mood => {
-      const date = new Date(mood.tracked_at);
-      const week = Math.ceil(date.getDate() / 7);
-      if (week <= 4) {
-        weeklyAverages[week].sum += mood.intensity;
-        weeklyAverages[week].count += 1;
-      }
-    });
+  //   monthlyData.forEach(mood => {
+  //     const date = new Date(mood.tracked_at);
+  //     const week = Math.ceil(date.getDate() / 7);
+  //     if (week <= 4) {
+  //       weeklyAverages[week].sum += mood.intensity;
+  //       weeklyAverages[week].count += 1;
+  //     }
+  //   });
 
-    return Object.values(weeklyAverages).map(data => 
-      data.count > 0 ? Math.round((data.sum / data.count) * 10) / 10 : 0
-    );
-  };
+  //   return Object.values(weeklyAverages).map(data => 
+  //     data.count > 0 ? Math.round((data.sum / data.count) * 10) / 10 : 0
+  //   );
+  // };
 
-  const monthlyChartData = monthlyMoodData ? {
-    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-    datasets: [{
-      data: getMonthlyAverages(monthlyMoodData),
-      color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
-      strokeWidth: 2
-    }]
-  } : null;
+  // const monthlyChartData = monthlyMoodData ? {
+  //   labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+  //   datasets: [{
+  //     data: getMonthlyAverages(monthlyMoodData),
+  //     color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
+  //     strokeWidth: 2
+  //   }]
+  // } : null;
 
   const getMostIntenseMood = (moodData: MoodData[] | null) => {
     if (!moodData || moodData.length === 0) return null;
@@ -486,7 +486,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {radarChartData.length > 0 && (
+      {/* {radarChartData.length > 0 && (
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Mood Distribution</Text>
           <View style={styles.chartWrapper}>
@@ -509,9 +509,9 @@ export default function HomeScreen() {
             />
           </View>
         </View>
-      )}
+      )} */}
 
-      {lineChartData && (
+      {/* {lineChartData && (
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Weekly Mood Trends</Text>
           <View style={styles.chartWrapper}>
@@ -537,9 +537,9 @@ export default function HomeScreen() {
             />
           </View>
         </View>
-      )}
+      )} */}
 
-      {monthlyChartData && (
+      {/* {monthlyChartData && (
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Monthly Mood Trends</Text>
           <View style={styles.chartWrapper}>
@@ -565,7 +565,7 @@ export default function HomeScreen() {
             />
           </View>
         </View>
-      )}
+      )} */}
 
       <View style={styles.sectionDivider}>
         <View style={styles.dividerLine} />
