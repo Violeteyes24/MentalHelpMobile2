@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "expo-router";
+import { useAuth } from "../../context/AuthContext";
 
 const supabase = createClient(
   "https://ybpoanqhkokhdqucwchy.supabase.co",
@@ -21,10 +22,27 @@ export default function CounselorList() {
   const [counselors, setCounselors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { session } = useAuth();
 
   useEffect(() => {
     fetchCounselors();
   }, []);
+
+  async function handleNewMessage(counselor_id: string) {
+    const { data, error } = await supabase
+      .from("conversations")
+      .insert([
+        {
+          conversation_type: "active",
+          created_by: session?.user.id,
+          user_id: counselor_id,
+        },
+      ])
+      .select();
+      if(data){
+        router.push(`/messaging/${data[0].conversation_id}`);
+      }
+  }
 
   async function fetchCounselors() {
     let { data, error } = await supabase
@@ -48,6 +66,15 @@ export default function CounselorList() {
         router.push(`/availability/${item.user_id}`);
       }}
     >
+      <TouchableOpacity
+      onPress={() => {
+        handleNewMessage(item.user_id);
+      }}
+      >
+        <Text>
+          Start Conversation
+        </Text>
+      </TouchableOpacity>
       <Image
         source={{
           uri: "https://static.vecteezy.com/system/resources/thumbnails/036/594/092/small_2x/man-empty-avatar-photo-placeholder-for-social-networks-resumes-forums-and-dating-sites-male-and-female-no-photo-images-for-unfilled-user-profile-free-vector.jpg",

@@ -28,12 +28,13 @@ export default function MessageList() {
   useEffect(() => {
     fetchConversations();
 
-    const channels = supabase.channel('custom-all-channel')
+    const channels = supabase
+      .channel("custom-all-channel")
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'messages' },
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages" },
         (payload) => {
-          console.log('Change received!', payload);
+          console.log("Change received!", payload);
           fetchConversations(); // Refetch conversations on any change
         }
       )
@@ -49,50 +50,49 @@ export default function MessageList() {
     try {
       const currentUserId = session?.user.id;
       if (!currentUserId) return;
-  
+
+      // Query the conversation_list_view
       let { data, error } = await supabase
-        .from("messages")
-        .select(`
-          *,
-          sender:sender_id ( name )
-        `)
-        .or(`sender_id.eq.${currentUserId},conversation_id.eq.${currentUserId}`)
-        .order("sent_at", { ascending: false });
-  
+        .from("conversation_list_view")
+        .select("*")
+        .or(`user_id.eq.${currentUserId},created_by.eq.${currentUserId}`)
+        .order("created_at", { ascending: false });
+
       if (error) throw error;
-  
+
       if (!data || data.length === 0) {
         setConversations([]);
       } else {
-        let uniqueConversations = [];
-        const seen = new Set();
-  
-        for (const msg of data) {
-          if (msg.conversation_id && !seen.has(msg.conversation_id)) {
-            seen.add(msg.conversation_id);
-            uniqueConversations.push({
-              ...msg,
-              sender_name: msg.sender?.name || "Unknown"
-            });
-          }
-        }
-        // console.log("Unique conversations:", uniqueConversations);
-        setConversations(uniqueConversations);
+        // Adapt the data to match your Message type
+        const formattedConversations = data.map((conversation) => ({
+          conversation_id: conversation.conversation_id,
+          sender_id: conversation.created_by || "",
+          message_content: `${
+            conversation.conversation_type || "Conversation"
+          }`, // You might want to fetch the last message instead
+          sender_name:
+            conversation.user_id === currentUserId
+              ? conversation.creator_name
+              : conversation.user_name,
+        }));
+
+        setConversations(formattedConversations);
       }
     } catch (err) {
-      console.error("Error fetching messages:", err);
+      console.error("Error fetching conversations:", err);
       setConversations([]);
     } finally {
       setLoading(false);
     }
   }
-  
 
   const renderItem = ({ item }: { item: Message }) => (
     <TouchableOpacity
       style={styles.itemContainer}
       onPress={() => {
-        console.log(`Navigating to messaging page with user ID: ${item.conversation_id}`);
+        console.log(
+          `Navigating to messaging page with user ID: ${item.conversation_id}`
+        );
         router.push(`/messaging/${item.conversation_id}`); // Navigate to dynamic route
       }}
     >
@@ -133,7 +133,6 @@ export default function MessageList() {
       )}
     </View>
   );
-
 }
 
 const styles = StyleSheet.create({
