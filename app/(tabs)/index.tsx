@@ -575,7 +575,7 @@ export default function HomeScreen() {
 
       <View style={styles.moodList}>
         {moodData && moodData.length > 0 ? (
-          moodData.map((mood, index) => (
+          moodData.slice(0, 6).map((mood, index) => (
             <View key={index} style={styles.moodItemCard}>
               <View style={[styles.moodIndicator, { backgroundColor: getEmotionColor(mood.mood_type) }]} />
               <View style={styles.moodItemContent}>
