@@ -299,7 +299,12 @@ export default function HomeScreen() {
       acc[day] = { sum: 0, count: 0 };
       return acc;
     }, {} as Record<string, { sum: number; count: number }>);
-
+  
+    // If moodData is null or empty, return an array of zeros
+    if (!moodData || moodData.length === 0) {
+      return days.map(() => 0);
+    }
+  
     moodData.forEach(mood => {
       const date = new Date(mood.tracked_at);
       const day = days[date.getDay()];
@@ -308,58 +313,79 @@ export default function HomeScreen() {
         dayAverages[day].count += 1;
       }
     });
-
+  
     return days.map(day => {
       const dayData = dayAverages[day];
       return dayData.count === 0 ? 0 : Math.round((dayData.sum / dayData.count) * 10) / 10;
     });
   };
 
-  const lineChartData = moodData
-    ? {
-        labels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-        datasets: [
-          {
-            data: getDayAverages(moodData),
-            color: (opacity = 1) => `rgba(75, 192, 192, ${opacity})`,
-            strokeWidth: 3,
-          },
-        ],
-      }
-    : null;
-
-  const getMonthlyAverages = (monthlyData: MoodData[]) => {
-    if (!monthlyData || monthlyData.length === 0) return [];
-
-    const weeklyAverages: { [key: number]: { sum: number; count: number } } = {
-      1: { sum: 0, count: 0 },
-      2: { sum: 0, count: 0 },
-      3: { sum: 0, count: 0 },
-      4: { sum: 0, count: 0 }
+  const lineChartData = moodData && moodData.length > 0
+  ? {
+      labels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+      datasets: [
+        {
+          data: getDayAverages(moodData),
+          color: (opacity = 1) => `rgba(75, 192, 192, ${opacity})`,
+          strokeWidth: 3,
+        },
+      ],
+    }
+  : {
+      labels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+      datasets: [
+        {
+          data: [0, 0, 0, 0, 0, 0, 0],
+          color: (opacity = 1) => `rgba(75, 192, 192, ${opacity})`,
+          strokeWidth: 3,
+        },
+      ],
     };
 
-    monthlyData.forEach(mood => {
-      const date = new Date(mood.tracked_at);
-      const week = Math.ceil(date.getDate() / 7);
-      if (week <= 4) {
-        weeklyAverages[week].sum += mood.intensity;
-        weeklyAverages[week].count += 1;
+    const getMonthlyAverages = (monthlyData: MoodData[]) => {
+      // Return array of zeros if no data
+      if (!monthlyData || monthlyData.length === 0) {
+        return [0, 0, 0, 0];
       }
-    });
+    
+      const weeklyAverages: { [key: number]: { sum: number; count: number } } = {
+        1: { sum: 0, count: 0 },
+        2: { sum: 0, count: 0 },
+        3: { sum: 0, count: 0 },
+        4: { sum: 0, count: 0 }
+      };
+    
+      monthlyData.forEach(mood => {
+        const date = new Date(mood.tracked_at);
+        const week = Math.ceil(date.getDate() / 7);
+        if (week <= 4) {
+          weeklyAverages[week].sum += mood.intensity;
+          weeklyAverages[week].count += 1;
+        }
+      });
+    
+      return Object.values(weeklyAverages).map(data => 
+        data.count > 0 ? Math.round((data.sum / data.count) * 10) / 10 : 0
+      );
+    };
 
-    return Object.values(weeklyAverages).map(data => 
-      data.count > 0 ? Math.round((data.sum / data.count) * 10) / 10 : 0
-    );
-  };
-
-  const monthlyChartData = monthlyMoodData ? {
-    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-    datasets: [{
-      data: getMonthlyAverages(monthlyMoodData),
-      color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
-      strokeWidth: 2
-    }]
-  } : null;
+    const monthlyChartData = monthlyMoodData && monthlyMoodData.length > 0 
+    ? {
+        labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+        datasets: [{
+          data: getMonthlyAverages(monthlyMoodData),
+          color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
+          strokeWidth: 2
+        }]
+      } 
+    : {
+        labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+        datasets: [{
+          data: [0, 0, 0, 0],
+          color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
+          strokeWidth: 2
+        }]
+      };
 
   const getMostIntenseMood = (moodData: MoodData[] | null) => {
     if (!moodData || moodData.length === 0) return null;
@@ -486,7 +512,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {radarChartData.length > 0 && (
+      {radarChartData.length > 0 ? (
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Mood Distribution</Text>
           <View style={styles.chartWrapper}>
@@ -509,9 +535,9 @@ export default function HomeScreen() {
             />
           </View>
         </View>
-      )}
+      ) : null}
 
-      {lineChartData && (
+{lineChartData && lineChartData.datasets && lineChartData.datasets[0].data.some(value => !isNaN(value)) && (
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Weekly Mood Trends</Text>
           <View style={styles.chartWrapper}>
