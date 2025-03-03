@@ -276,9 +276,11 @@ export default function HomeScreen() {
   };
 
   const screenWidth = Dimensions.get("window").width;
+  const formattedDate = new Date().toDateString();
 
   const radarChartData = moodData ? (() => {
-    const moodGroups = moodData.reduce((acc, mood) => {
+    const recentMoods = moodData.slice(0,6); // only the last 6 mood entries
+    const moodGroups = recentMoods.reduce((acc, mood) => {
       if (!acc[mood.mood_type]) {
         acc[mood.mood_type] = { sum: 0, count: 0 };
       }
@@ -286,7 +288,7 @@ export default function HomeScreen() {
       acc[mood.mood_type].count += 1;
       return acc;
     }, {} as Record<string, { sum: number; count: number }>);
-
+    
     return Object.entries(moodGroups).map(([mood_type, data]) => ({
       label: mood_type,
       value: Math.round((data.sum / data.count) * 10) / 10
@@ -536,7 +538,12 @@ export default function HomeScreen() {
           </View>
         </View>
       ) : null}
-
+ 
+      <View style={styles.sectionDivider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.sectionTitle}>{formattedDate}</Text> {/* Formatted date displayed within Text */}
+        <View style={styles.dividerLine} />
+      </View>
 {lineChartData && lineChartData.datasets && lineChartData.datasets[0].data.some(value => !isNaN(value)) && (
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Weekly Mood Trends</Text>
@@ -560,6 +567,11 @@ export default function HomeScreen() {
               }}
               style={styles.chart}
               bezier
+              onDataPointClick={(data) => {
+                const label = lineChartData.labels[data.index];
+                const value = data.value;
+                alert(`Label: ${label}, Value: ${value}`);
+              }}
             />
           </View>
         </View>
@@ -588,6 +600,11 @@ export default function HomeScreen() {
               }}
               style={styles.chart}
               bezier
+              onDataPointClick={(data) => {
+                const label = monthlyChartData.labels[data.index];
+                const value = data.value;
+                alert(`Label: ${label}, Value: ${value}`);
+              }}
             />
           </View>
         </View>
@@ -612,11 +629,11 @@ export default function HomeScreen() {
                     <View 
                       style={[
                         styles.intensityBar, 
-                        { width: `${(mood.intensity / 5) * 100}%`, backgroundColor: getEmotionColor(mood.mood_type) }
+                        { width: `${(mood.intensity / 10) * 100}%`, backgroundColor: getEmotionColor(mood.mood_type) }
                       ]} 
                     />
                   </View>
-                  <Text style={styles.moodIntensityValue}>{mood.intensity}/5</Text>
+                  <Text style={styles.moodIntensityValue}>{mood.intensity}/10</Text>
                 </View>
                 <Text style={styles.moodDate}>
                   {new Date(mood.tracked_at).toLocaleDateString('en-US', { 
@@ -710,6 +727,13 @@ const styles = StyleSheet.create({
   userName: {
     fontWeight: "bold",
     color: "#1C7F56",
+  },
+  dateText: {
+    fontSize: 14,
+    color: "#64748b",
+    fontFamily: "System",
+    marginTop: 4,
+    textAlign: "center",
   },
   summaryContainer: {
     flexDirection: 'row',

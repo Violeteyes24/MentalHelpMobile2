@@ -12,6 +12,7 @@ import {
 import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
+import { MaterialIcons } from "@expo/vector-icons"; // Import icons
 
 const supabase = createClient(
   "https://ybpoanqhkokhdqucwchy.supabase.co",
@@ -39,9 +40,9 @@ export default function CounselorList() {
         },
       ])
       .select();
-      if(data){
-        router.push(`/messaging/${data[0].conversation_id}`);
-      }
+    if (data) {
+      router.push(`/messaging/${data[0].conversation_id}`);
+    }
   }
 
   async function fetchCounselors() {
@@ -52,8 +53,6 @@ export default function CounselorList() {
 
     if (error) console.error(error);
     else setCounselors(data || []);
-    // console.log("Data of Counselors:", JSON.stringify(data, null, 2)); // Pretty print the objects
-    // is this the right console.log ? I don't understand why it is null, but on my app, it displays the counselor's name, and number, fetchcounselor is working correctly.
     setLoading(false);
   }
 
@@ -62,19 +61,9 @@ export default function CounselorList() {
       key={item.id}
       style={styles.item}
       onPress={() => {
-        console.log("Navigating to:", item.user_id); // Check if user_id is available
         router.push(`/availability/${item.user_id}`);
       }}
     >
-      <TouchableOpacity
-      onPress={() => {
-        handleNewMessage(item.user_id);
-      }}
-      >
-        <Text>
-          Start Conversation
-        </Text>
-      </TouchableOpacity>
       <Image
         source={{
           uri: "https://static.vecteezy.com/system/resources/thumbnails/036/594/092/small_2x/man-empty-avatar-photo-placeholder-for-social-networks-resumes-forums-and-dating-sites-male-and-female-no-photo-images-for-unfilled-user-profile-free-vector.jpg",
@@ -85,6 +74,15 @@ export default function CounselorList() {
         <Text style={styles.name}>{item.name}</Text>
         <Text style={styles.contact}>{item.contact_number}</Text>
       </View>
+      <TouchableOpacity
+        style={styles.messageButton}
+        onPress={(e) => {
+          e.stopPropagation(); // Prevent triggering the parent TouchableOpacity
+          handleNewMessage(item.user_id);
+        }}
+      >
+        <MaterialIcons name="message" size={24} color="white" />
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 
@@ -97,34 +95,92 @@ export default function CounselorList() {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-      <View style={{ marginTop: "10%" }}>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
         <Text style={styles.title}>Counselor's List</Text>
-        <FlatList
-          data={counselors}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
-        />
       </View>
+      <FlatList
+        data={counselors}
+        keyExtractor={(item) => item.user_id.toString()}
+        renderItem={renderItem}
+        contentContainerStyle={styles.list}
+      />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  list: { padding: 16 },
+  container: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
+  header: {
+    marginTop: 60,
+    marginBottom: 20,
+    paddingHorizontal: 16,
+  },
+  list: {
+    padding: 16,
+    paddingBottom: 40,
+  },
   item: {
     flexDirection: "row",
+    alignItems: "center",
     padding: 16,
     marginBottom: 12,
     backgroundColor: "#fff",
-    borderRadius: 8,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  image: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 16,
+    borderWidth: 2,
+    borderColor: "#6ee7b7",
+  },
+  details: {
+    flex: 1,
+  },
+  name: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 4,
+    color: "#333",
+  },
+  contact: {
+    fontSize: 14,
+    color: "#666",
+  },
+  messageButton: {
+    backgroundColor: "#6ee7b7",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
     elevation: 2,
   },
-  image: { width: 50, height: 50, borderRadius: 25, marginRight: 16 },
-  details: { flex: 1 },
-  name: { fontSize: 18, fontWeight: "bold" },
-  contact: { fontSize: 14, color: "#555" },
-  loader: { flex: 1, justifyContent: "center", alignItems: "center" },
-  title: { fontSize: 24, fontWeight: "800", textAlign: "center" },
+  loader: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "800",
+    textAlign: "center",
+    color: "#333",
+    marginBottom: 10,
+  },
 });
