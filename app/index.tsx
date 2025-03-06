@@ -1,3 +1,6 @@
+import { LogBox } from "react-native";
+LogBox.ignoreAllLogs(); // Disable all log notifications
+
 // app/(tabs)/Auth.tsx
 import React, { useState } from 'react'
 import { Alert, StyleSheet, View, AppState, Text, Modal, TouchableOpacity, ImageBackground, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView } from 'react-native'

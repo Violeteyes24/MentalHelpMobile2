@@ -41,8 +41,7 @@ useEffect(() => {
   console.log("useEffect triggered with id:", id);
   fetchMessages();
   fetchPredefinedOptions(); // Ensure this runs on component mount
-  fetchUserName(); // Fetch the user's name
-
+  // Removed fetchUserName call for consistency with MessageList
   const allChannel = supabase
     .channel("custom-all-channel")
     .on(
@@ -92,6 +91,12 @@ async function fetchMessages() {
   }));
 
   setMessages(formattedMessages);
+
+  // Set correspondent name similar to MessageList by selecting the first message not from current user.
+  const correspondent = formattedMessages.find(
+    (msg) => msg.sender_id !== session?.user.id
+  );
+  setUserName(correspondent ? correspondent.sender_name : "Unknown User");
 }
 
  async function fetchPredefinedOptions() {
@@ -109,28 +114,6 @@ async function fetchMessages() {
      console.log("Updated predefinedOptions state:", predefinedOptions); // This might still log an empty array due to async nature
    }
  }
-
-async function fetchUserName() {
-  if (!id) {
-    console.log("No ID found");
-    return;
-  }
-
-  const { data, error } = await supabase
-    .from("users")
-    .select("name")
-    .eq("user_id", id)
-    .single();
-
-  if (error) {
-    console.error("Error fetching user name:", error);
-    setUserName("Unknown User");
-  } else if (data) {
-    console.log("Fetched user name:", data.name);
-    setUserName(data.name);
-  }
-}
-
 
   async function sendMessage(selectedMessage: PredefinedMessage) {
     console.log("Sending message:", selectedMessage);
@@ -182,7 +165,7 @@ async function fetchUserName() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Messages</Text>
+      <Text style={styles.title}>{userName || 'Messages'}</Text>
       <FlatList
         style={styles.chatLog}
         contentContainerStyle={styles.chatLogContent}

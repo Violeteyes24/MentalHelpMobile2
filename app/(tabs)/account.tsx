@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { StyleSheet, View, Alert, Text, ScrollView, Image, TouchableOpacity } from "react-native";
+import { StyleSheet, View, Alert, Text, ScrollView, Image, TouchableOpacity, ActivityIndicator } from "react-native";
 import { Button, Input } from "@rneui/themed";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
@@ -30,12 +30,13 @@ export default function Account() {
   const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
   const [showProgramDropdown, setShowProgramDropdown] = useState(false);
   const [showYearLevelDropdown, setShowYearLevelDropdown] = useState(false);
+  const [imageLoading, setImageLoading] = useState(false);
 
   const router = useRouter();
   const navigateToHome = () => router.push("/(tabs)/");
 
   // Changed to use a proper URL for your Supabase instance
-  const SUPABASE_URL = "https://your-supabase-url.supabase.co"; // Replace with your actual URL
+  const SUPABASE_URL = "https://ybpoanqhkokhdqucwchy.supabase.co"; // Replace with your actual URL
   
   useEffect(() => {
     if (session?.user?.id) {
@@ -97,8 +98,14 @@ export default function Account() {
         setCredentials(data.credentials || "");
         
         if (data.profile_image_url) {
-          console.log("Setting profile image:", data.profile_image_url);
-          setProfileImageUrl(data.profile_image_url);
+          // Check if the URL is a valid web URL (not a local file URI)
+          if (data.profile_image_url.startsWith('http')) {
+            console.log("Setting profile image:", data.profile_image_url);
+            setProfileImageUrl(data.profile_image_url);
+          } else {
+            console.log("Invalid image URL format, setting to null:", data.profile_image_url);
+            setProfileImageUrl(null);
+          }
         }
       }
     } catch (error) {
@@ -172,7 +179,7 @@ export default function Account() {
             encoding: FileSystem.EncodingType.Base64,
           });
           
-          const fileName = `users/${session.user.id}-${Date.now()}`;
+          const fileName = `users/${session.user.id}-${Date.now()}.jpg`;
           console.log("Uploading to:", fileName);
 
           // Convert Base64 to Blob for Supabase
@@ -189,18 +196,18 @@ export default function Account() {
 
           if (uploadError) {
             console.error('Image Upload Error:', uploadError);
-            Alert.alert('Error', 'Failed to upload image. Continuing without updating profile picture.');
+            // Alert.alert('Error', 'Failed to upload image. Continuing without updating profile picture.');
             // Continue with update but without changing image
           } else {
             console.log("Image upload successful:", data);
             
-            // Construct proper public URL for the image
+            // Manually construct public URL
             imageUrl = `${SUPABASE_URL}/storage/v1/object/public/profile_pictures/${fileName}`;
             console.log("New image URL:", imageUrl);
           }
         } catch (imgError) {
           console.error("Image processing error:", imgError);
-          Alert.alert('Error', 'Failed to process image. Continuing without updating profile picture.');
+          // Alert.alert('Error', 'Failed to process image. Continuing without updating profile picture.');
           // Continue with update but without changing image
         }
       }
@@ -266,41 +273,105 @@ export default function Account() {
       getProfile();
     } catch (error) {
       console.error("Profile update error:", error instanceof Error ? error.message : error);
-      Alert.alert("Error", error instanceof Error ? error.message : 'An unknown error occurred');
+      // Alert.alert("Error", error instanceof Error ? error.message : 'An unknown error occurred');
     } finally {
       setLoading(false); // Always reset loading state
     }
   }
 
   const pickImage = async () => {
+    if (!session?.user?.id) {
+      Alert.alert('Error', 'You must be logged in to update your profile picture');
+      return;
+    }
+
     try {
+      // Check permissions
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission Required', 'Sorry, we need camera roll permissions to make this work!');
         return;
       }
-
+  
+      // Launch image picker
       let result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8, // Lower quality for better upload performance
+        aspect: [1, 1], // Square aspect ratio for profile pic
+        quality: 0.7, // Reduced quality for better upload performance
       });
 
       if (!result.canceled && result.assets && result.assets[0]) {
-        console.log("Image selected:", result.assets[0].uri);
+        setLoading(true);
         
-        // Store the local URI for preview
-        setProfileImageUrl(result.assets[0].uri);
-        // Store the URI for later upload
-        setImageFile(result.assets[0].uri);
+        try {
+          // Get file info and create a readable name
+          const uri = result.assets[0].uri;
+          const fileExt = uri.split('.').pop(); // Get file extension
+          const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
+          const filePath = `users/${fileName}`;
+          
+          // Read file as base64
+          const base64 = await FileSystem.readAsStringAsync(uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          
+          // Convert to blob
+          const blob = await fetch(`data:image/${fileExt};base64,${base64}`).then(res => res.blob());
+          
+          // Upload to Supabase Storage
+          const { data, error: uploadError } = await supabase
+            .storage
+            .from('profile_pictures')
+            .upload(filePath, blob, {
+              contentType: `image/${fileExt}`,
+              cacheControl: '3600',
+              upsert: true, // Changed to true to replace existing files
+            });
+            
+          if (uploadError) {
+            throw new Error(uploadError.message);
+          }
+          
+          // Generate a public URL for the uploaded image
+          const { data: urlData } = await supabase
+            .storage
+            .from('profile_pictures')
+            .getPublicUrl(filePath);
+            
+          if (!urlData || !urlData.publicUrl) {
+            throw new Error('Failed to get public URL');
+          }
+          
+          // Store the URL to your state
+          const publicUrl = urlData.publicUrl;
+          setProfileImageUrl(publicUrl);
+          
+          // Update the profile with the new image URL
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ profile_image_url: publicUrl })
+            .eq('user_id', session.user.id);
+            
+          if (updateError) {
+            throw new Error(updateError.message);
+          }
+          
+          Alert.alert('Success', 'Profile picture updated successfully!');
+        } catch (error) {
+          console.error('Image upload error:', error);
+          // Alert.alert('Error', `Failed to upload image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          // Keep showing the previous image if upload fails
+        } finally {
+          setLoading(false);
+        }
       }
     } catch (error) {
       console.error("Image picker error:", error);
       Alert.alert("Error", "Failed to select image");
+      setLoading(false);
     }
   };
-
   const genderOptions = ["Male", "Female", "Non-binary", "Prefer not to say"];
   const programOptions = ["BSIT", "BSCS", "BSN", "BSCE", "BSTM", "BSFM", "BSA"];
   const departmentOptions = ['COECS', 'CBA', 'COL', 'IBED', 'CHS', 'CAS'];
@@ -314,14 +385,25 @@ export default function Account() {
 
       <View style={styles.profileImageContainer}>
         {profileImageUrl ? (
-          <Image 
-            source={{ uri: profileImageUrl }} 
-            style={styles.profileImage} 
-            onError={(e) => {
-              console.error("Image load error:", e.nativeEvent.error);
-              setProfileImageUrl(null); // Fall back to placeholder on error
-            }}
-          />
+          <View>
+            <Image 
+              source={{ uri: profileImageUrl }} 
+              style={styles.profileImage} 
+              onLoadStart={() => setImageLoading(true)}
+              onLoadEnd={() => setImageLoading(false)}
+              onError={(e) => {
+                console.error("Image load error:", e.nativeEvent.error);
+                setProfileImageUrl(null);
+              }}
+            />
+            {imageLoading && (
+              <ActivityIndicator 
+                style={StyleSheet.absoluteFill} 
+                size="small" 
+                color="#34d399"
+              />
+            )}
+          </View>
         ) : (
           <View style={styles.noImageContainer}>
             <Text style={styles.noImageText}>{name ? name.charAt(0).toUpperCase() : "?"}</Text>

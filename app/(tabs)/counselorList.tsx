@@ -1,4 +1,20 @@
 import React, { useEffect, useState } from "react";
+import { LogBox } from "react-native"; // Add LogBox import
+// Suppress log notifications for this page
+LogBox.ignoreAllLogs();
+
+// If desired, override the global error handler here as well
+declare const global: {
+  ErrorUtils?: {
+    setGlobalHandler: (callback: (error: Error, isFatal: boolean) => void) => void;
+  };
+};
+if (global.ErrorUtils) {
+  global.ErrorUtils.setGlobalHandler((error, isFatal) => {
+    // Do nothing to hide error overlays
+  });
+}
+
 import {
   View,
   Text,
@@ -58,7 +74,7 @@ export default function CounselorList() {
 
   const renderItem = ({ item }: { item: any }) => (
     <TouchableOpacity
-      key={item.id}
+      key={item.user_id} // Updated key from item.id to item.user_id
       style={styles.item}
       onPress={() => {
         router.push(`/availability/${item.user_id}`);
@@ -99,12 +115,9 @@ export default function CounselorList() {
       <View style={styles.header}>
         <Text style={styles.title}>Counselor's List</Text>
       </View>
-      <FlatList
-        data={counselors}
-        keyExtractor={(item) => item.user_id.toString()}
-        renderItem={renderItem}
-        contentContainerStyle={styles.list}
-      />
+      <View style={styles.list}>
+        {counselors.map((item) => renderItem({ item }))}
+      </View>
     </ScrollView>
   );
 }

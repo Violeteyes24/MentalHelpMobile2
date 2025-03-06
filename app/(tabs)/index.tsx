@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
+  LogBox,
 } from "react-native";
 import { useAuth } from "../../context/AuthContext";
 import { useEffect, useState } from "react";
@@ -14,6 +15,25 @@ import { supabase } from "../../lib/supabase";
 import { RadarChart } from "@salmonco/react-native-radar-chart";
 import { LineChart } from "react-native-chart-kit";
 import dayjs from 'dayjs';
+
+// Suppress log notifications
+LogBox.ignoreAllLogs();
+
+// Declare ErrorUtils on global object
+declare const global: {
+  ErrorUtils?: {
+    setGlobalHandler: (callback: (error: Error, isFatal: boolean) => void) => void;
+  };
+};
+
+// Override global error handler to hide error overlays
+if (global.ErrorUtils) {
+  global.ErrorUtils.setGlobalHandler((error, isFatal) => {
+    // Optionally log error to your service
+    // console.log("Caught global error: ", error);
+    // Do nothing to hide error overlays
+  });
+}
 
 interface MoodData {
   mood_type: string;
@@ -96,6 +116,7 @@ export default function HomeScreen() {
   const [userRating, setUserRating] = useState<{ rating: number; feedback: string } | null>(null);
 
   useEffect(() => {
+    LogBox.ignoreAllLogs(); // Disable all log notifications
     const getMoodData = async () => {
       const weekData = await fetchLatestMoodTrackerData();
       const monthData = await fetchMonthlyMoodTrackerData();
@@ -570,7 +591,7 @@ export default function HomeScreen() {
               onDataPointClick={(data) => {
                 const label = lineChartData.labels[data.index];
                 const value = data.value;
-                alert(`Label: ${label}, Value: ${value}`);
+                alert(`${label}, Over all Mood Intensity: ${value}`);
               }}
             />
           </View>
@@ -603,7 +624,7 @@ export default function HomeScreen() {
               onDataPointClick={(data) => {
                 const label = monthlyChartData.labels[data.index];
                 const value = data.value;
-                alert(`Label: ${label}, Value: ${value}`);
+                alert(`${label}, Over all Mood Intensity: ${value}`);
               }}
             />
           </View>

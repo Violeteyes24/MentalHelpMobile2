@@ -9,6 +9,7 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
+  Dimensions,
 } from "react-native";
 import Slider from "@react-native-community/slider";
 import PieChart from "react-native-pie-chart";
@@ -189,7 +190,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   slider: {
-    width: 250,
+    width: Dimensions.get("window").width * 0.7, // changed: slider now adjusts to device width
   },
   pieChartContainer: {
     alignItems: "center",
