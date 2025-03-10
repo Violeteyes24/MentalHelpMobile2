@@ -17,10 +17,67 @@ type Message = {
   message_content: string;
   conversation_id: string;
   sender_name?: string;
+  created_at?: string;
 };
+
+type AggregatedConversation = {
+  sender_name: string;
+  conversation_ids: string[];
+  message_contents: string[];
+  sender_ids: string[];
+  latestConversationId: string;
+  count: number;
+};
+
+/**
+ * Transforms an array of conversations by aggregating entries with the same sender_name
+ */
+function aggregateConversationsBySender(conversations: Message[]): AggregatedConversation[] {
+  // Create a map to group conversations by sender name
+  const conversationMap = new Map<string, AggregatedConversation>();
+
+  // Process each conversation
+  for (const conversation of conversations) {
+    // Skip conversations without sender names
+    if (!conversation.sender_name) continue;
+
+    const senderName = conversation.sender_name;
+
+    // If this sender is not in our map yet, create a new entry
+    if (!conversationMap.has(senderName)) {
+      conversationMap.set(senderName, {
+        sender_name: senderName,
+        conversation_ids: [conversation.conversation_id],
+        message_contents: [conversation.message_content],
+        sender_ids: [conversation.sender_id],
+        latestConversationId: conversation.conversation_id,
+        count: 1
+      });
+    } else {
+      // Update existing entry
+      const currentEntry = conversationMap.get(senderName)!;
+      
+      // Add the conversation details to existing entry if not already present
+      if (!currentEntry.conversation_ids.includes(conversation.conversation_id)) {
+        currentEntry.conversation_ids.push(conversation.conversation_id);
+        currentEntry.message_contents.push(conversation.message_content);
+        currentEntry.count += 1;
+      }
+      
+      // Only add unique sender IDs
+      if (!currentEntry.sender_ids.includes(conversation.sender_id)) {
+        currentEntry.sender_ids.push(conversation.sender_id);
+      }
+    }
+  }
+
+  // Convert map values to array
+  return Array.from(conversationMap.values());
+}
 
 export default function MessageList() {
   const [conversations, setConversations] = useState<Message[]>([]);
+  const [aggregatedConversations, setAggregatedConversations] = useState<AggregatedConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { session } = useAuth();
@@ -44,6 +101,12 @@ export default function MessageList() {
       supabase.removeChannel(channels);
     };
   }, []);
+
+  // Transform raw conversations into aggregated conversations
+  useEffect(() => {
+    const aggregated = aggregateConversationsBySender(conversations);
+    setAggregatedConversations(aggregated);
+  }, [conversations]);
 
   async function fetchConversations() {
     setLoading(true);
@@ -74,6 +137,7 @@ export default function MessageList() {
             conversation.user_id === currentUserId
               ? conversation.creator_name
               : conversation.user_name,
+          created_at: conversation.created_at,
         }));
 
         setConversations(formattedConversations);
@@ -86,14 +150,14 @@ export default function MessageList() {
     }
   }
 
-  const renderItem = ({ item }: { item: Message }) => (
+  const renderItem = ({ item }: { item: AggregatedConversation }) => (
     <TouchableOpacity
       style={styles.itemContainer}
       onPress={() => {
         console.log(
-          `Navigating to messaging page with user ID: ${item.conversation_id}`
+          `Navigating to messaging page with latest conversation ID: ${item.latestConversationId}`
         );
-        router.push(`/messaging/${item.conversation_id}`); // Navigate to dynamic route
+        router.push(`/messaging/${item.latestConversationId}`);
       }}
     >
       <Image
@@ -104,8 +168,17 @@ export default function MessageList() {
       />
       <View style={styles.messageContainer}>
         <Text style={styles.name}>{item.sender_name}</Text>
-        <Text style={styles.message}>{item.message_content}</Text>
+        <Text style={styles.message}>
+          {item.count > 1
+            ? `${item.count} conversations`
+            : item.message_contents[0]}
+        </Text>
       </View>
+      {item.count > 1 && (
+        <View style={styles.badgeContainer}>
+          <Text style={styles.badgeText}>{item.count}</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 
@@ -120,15 +193,15 @@ export default function MessageList() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Messages</Text>
-      {conversations.length === 0 ? (
+      {aggregatedConversations.length === 0 ? (
         <View style={styles.noMessagesContainer}>
           <Text style={styles.noMessagesText}>No messages found</Text>
         </View>
       ) : (
         <FlatList
-          data={conversations}
+          data={aggregatedConversations}
           renderItem={renderItem}
-          keyExtractor={(item) => item.conversation_id}
+          keyExtractor={(item) => item.sender_name}
         />
       )}
     </View>
@@ -193,5 +266,19 @@ const styles = StyleSheet.create({
   noMessagesText: {
     fontSize: 18,
     color: "#999",
+  },
+  badgeContainer: {
+    backgroundColor: "#6ee7b7",
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 10,
+  },
+  badgeText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 14,
   },
 });

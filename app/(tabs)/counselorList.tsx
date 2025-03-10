@@ -57,6 +57,27 @@ export default function CounselorList() {
   }, [selectedDepartment, allCounselors]);
 
   async function handleNewMessage(counselor_id: string) {
+    // Check for a future appointment with this counselor
+    const now = new Date().toISOString();
+    let { data: appointmentData, error: appointmentError } = await supabase
+      .from("appointments")
+      .select(`
+      *,
+      availability_schedules (
+        start_time,
+        end_time,
+        date
+      )
+      `)
+      .eq("user_id", session?.user.id)
+      .eq("counselor_id", counselor_id)
+      .gt("availability_schedules.date", now); // only future appointments
+
+    if (appointmentError) console.error(appointmentError);
+    if (!appointmentData || appointmentData.length === 0) {
+      return alert("You must have a future appointment with this counselor to message.");
+    }
+
     const { data, error } = await supabase
       .from("conversations")
       .insert([
