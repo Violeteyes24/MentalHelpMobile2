@@ -37,6 +37,8 @@ const supabase = createClient(
 
 export default function CounselorList() {
   const [counselors, setCounselors] = useState<any[]>([]);
+  const [allCounselors, setAllCounselors] = useState<any[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("COECS");
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { session } = useAuth();
@@ -44,6 +46,15 @@ export default function CounselorList() {
   useEffect(() => {
     fetchCounselors();
   }, []);
+
+  useEffect(() => {
+    // filter local data based on selectedDepartment
+    setCounselors(
+      allCounselors.filter(
+        (counselor: any) => counselor.department_assigned === selectedDepartment
+      )
+    );
+  }, [selectedDepartment, allCounselors]);
 
   async function handleNewMessage(counselor_id: string) {
     const { data, error } = await supabase
@@ -64,11 +75,17 @@ export default function CounselorList() {
   async function fetchCounselors() {
     let { data, error } = await supabase
       .from("users")
-      .select("user_id, name, contact_number")
+      .select("user_id, name, contact_number, department_assigned") // added field
       .eq("user_type", "counselor");
 
     if (error) console.error(error);
-    else setCounselors(data || []);
+    else {
+      setAllCounselors(data || []);
+      // Initial filter based on default selectedDepartment
+      setCounselors((data || []).filter(
+        (counselor: any) => counselor.department_assigned === selectedDepartment
+      ));
+    }
     setLoading(false);
   }
 
@@ -110,10 +127,31 @@ export default function CounselorList() {
     );
   }
 
+  // array of default department filter values
+  const departments = ["COECS", "CBA", "CHS", "COED", "COL", "IBED", "CAS"];
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Counselor's List</Text>
+        {/* Filter buttons */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+          {departments.map((dep) => (
+            <TouchableOpacity
+              key={dep}
+              style={[
+                styles.filterButton,
+                selectedDepartment === dep && styles.filterButtonActive,
+              ]}
+              onPress={() => setSelectedDepartment(dep)}
+            >
+              <Text style={[
+                styles.filterText,
+                selectedDepartment === dep && styles.filterTextActive,
+              ]}>{dep}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
       <View style={styles.list}>
         {counselors.map((item) => renderItem({ item }))}
@@ -195,5 +233,27 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#333",
     marginBottom: 10,
+  },
+  // styles for filter buttons
+  filterContainer: {
+    flexDirection: "row",
+    marginBottom: 10,
+  },
+  filterButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: "#eee",
+    marginRight: 8,
+  },
+  filterButtonActive: {
+    backgroundColor: "#6ee7b7",
+  },
+  filterText: {
+    color: "#333",
+    fontSize: 14,
+  },
+  filterTextActive: {
+    color: "#fff",
   },
 });
