@@ -38,24 +38,37 @@ export default function Messages() {
   console.log("Current user ID:", session?.user.id);
   console.log("page id: ", id);
 useEffect(() => {
-  console.log("useEffect triggered with id:", id);
+  // console.log("useEffect triggered with id:", id);
   fetchMessages();
   fetchPredefinedOptions(); // Ensure this runs on component mount
   // Removed fetchUserName call for consistency with MessageList
-  const allChannel = supabase
-    .channel("custom-all-channel")
+  const messagesChannel = supabase
+    .channel("messages-channel") // Changed channel name
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "messages" },
       (payload) => {
-        console.log("Change received!", payload);
+        console.log("Message change received!", payload);
         fetchMessages();
       }
     )
     .subscribe();
 
+  // New real time channel for conversations
+  const conversationsChannel = supabase
+    .channel("conversations-channel") // Changed channel name
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "conversations" },
+      (payload) => {
+        console.log("Conversation change received!", payload);
+      }
+    )
+    .subscribe();
+
   return () => {
-    supabase.removeChannel(allChannel);
+    supabase.removeChannel(messagesChannel);
+    supabase.removeChannel(conversationsChannel);
   };
 }, [id]);
 
