@@ -7,6 +7,7 @@ import {
   Modal,
   ActivityIndicator,
   StyleSheet,
+  Alert,
 } from "react-native";
 import { supabase } from "../../lib/supabase";
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -88,6 +89,7 @@ const Chatbot = () => {
   const [showTerms, setShowTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [hasDisagreed, setHasDisagreed] = useState(false);
   
   // Group chat logs by date
   const groupedChatLog = groupChatByDate(chatLog);
@@ -174,13 +176,21 @@ const Chatbot = () => {
     }
   }
 
+  // Modified handleAcceptTerms to reset disagreement state
   const handleAcceptTerms = async () => {
     try {
       await AsyncStorage.setItem('chatbotTermsAccepted', 'true');
+      setHasDisagreed(false); // Allow chatbot usage after agreeing
       setShowTerms(false);
     } catch (error) {
       console.error('Error saving terms acceptance:', error);
     }
+  };
+
+  // New handler for disagreeing to terms
+  const handleDisagreeTerms = () => {
+    setHasDisagreed(true);
+    setShowTerms(false);
   };
 
   async function fetchUserData() {
@@ -235,8 +245,13 @@ const Chatbot = () => {
     }
   }
 
+  // Modify handleQuestionPress to check for disagreement
   async function handleQuestionPress(question: string) {
     if (isGenerating) return;
+    if (hasDisagreed) {
+      Alert.alert("Please agree to terms and conditions");
+      return;
+    }
     
     setIsGenerating(true);
     const currentTimestamp = new Date().toISOString();
@@ -451,6 +466,13 @@ const Chatbot = () => {
             >
               <Text style={styles.acceptButtonText}>I Understand and Accept</Text>
             </TouchableOpacity>
+            {/* Added Disagree Button */}
+            <TouchableOpacity
+              style={[styles.acceptButton, { backgroundColor: "#ef4444", marginTop: 10 }]}
+              onPress={handleDisagreeTerms}
+            >
+              <Text style={styles.acceptButtonText}>I Disagree</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -529,11 +551,11 @@ const Chatbot = () => {
               key={index}
               style={[
                 styles.questionButton,
-                isGenerating && styles.questionButtonDisabled
+                (isGenerating || hasDisagreed) && styles.questionButtonDisabled
               ]}
               onPress={() => handleQuestionPress(question.question)}
-              disabled={isGenerating}
-              activeOpacity={isGenerating ? 1 : 0.7}
+              disabled={isGenerating || hasDisagreed}
+              activeOpacity={(isGenerating || hasDisagreed) ? 1 : 0.7}
             >
               <Text style={styles.questionText}>{question.question}</Text>
             </TouchableOpacity>
