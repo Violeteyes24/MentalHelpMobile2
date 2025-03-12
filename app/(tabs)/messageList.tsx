@@ -34,16 +34,14 @@ type AggregatedConversation = {
  */
 function aggregateConversationsBySender(conversations: Message[]): AggregatedConversation[] {
   // Create a map to group conversations by sender name
-  const conversationMap = new Map<string, AggregatedConversation>();
+  const conversationMap = new Map<string, AggregatedConversation & { lastUpdated: string }>();
 
   // Process each conversation
   for (const conversation of conversations) {
-    // Skip conversations without sender names
     if (!conversation.sender_name) continue;
-
     const senderName = conversation.sender_name;
-
-    // If this sender is not in our map yet, create a new entry
+    // Ensure created_at exists for comparison
+    const createdAt = conversation.created_at || "";
     if (!conversationMap.has(senderName)) {
       conversationMap.set(senderName, {
         sender_name: senderName,
@@ -51,28 +49,25 @@ function aggregateConversationsBySender(conversations: Message[]): AggregatedCon
         message_contents: [conversation.message_content],
         sender_ids: [conversation.sender_id],
         latestConversationId: conversation.conversation_id,
-        count: 1
+        count: 1,
+        lastUpdated: createdAt,
       });
     } else {
-      // Update existing entry
       const currentEntry = conversationMap.get(senderName)!;
-      
-      // Add the conversation details to existing entry if not already present
       if (!currentEntry.conversation_ids.includes(conversation.conversation_id)) {
         currentEntry.conversation_ids.push(conversation.conversation_id);
         currentEntry.message_contents.push(conversation.message_content);
         currentEntry.count += 1;
       }
-      
-      // Only add unique sender IDs
-      if (!currentEntry.sender_ids.includes(conversation.sender_id)) {
-        currentEntry.sender_ids.push(conversation.sender_id);
+      // Update latestConversationId if this conversation is more recent
+      if (createdAt && new Date(createdAt).getTime() > new Date(currentEntry.lastUpdated).getTime()) {
+        currentEntry.latestConversationId = conversation.conversation_id;
+        currentEntry.lastUpdated = createdAt;
       }
     }
   }
-
-  // Convert map values to array
-  return Array.from(conversationMap.values());
+  // Remove the internal lastUpdated property from the result
+  return Array.from(conversationMap.values()).map(({ lastUpdated, ...rest }) => rest);
 }
 
 export default function MessageList() {
@@ -86,7 +81,7 @@ export default function MessageList() {
     fetchConversations();
 
     const channels = supabase
-      .channel("custom-all-channel")
+      .channel("message-list-channel")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "messages" },
