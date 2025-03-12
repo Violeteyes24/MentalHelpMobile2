@@ -134,9 +134,8 @@ export default function CounselorList() {
         )
       `)
       .eq("user_id", session.user.id)
-      // Filter out appointments with no schedule available.
+      .neq("status", "cancelled") // Exclude cancelled appointments
       .not("availability_schedules", "is", null)
-      // Only show appointments with future scheduled dates.
       .gt("availability_schedules.date", now.split('T')[0])
       // Updated ordering with foreignTable option
       .order("date", { foreignTable: "availability_schedules", ascending: true });
@@ -286,6 +285,7 @@ export default function CounselorList() {
           setModalVisible(true);
         }}
       >
+        <Text style={{ color: "white", fontSize: 12 }}>Upcoming Appointments</Text>
         <MaterialIcons name="event" size={24} color="white" />
       </TouchableOpacity>
 
@@ -460,20 +460,21 @@ const styles = StyleSheet.create({
   // New styles for the FAB and Appointments Modal
   fab: {
     position: "absolute",
-    bottom: 20,
+    bottom: 30,
     right: 20,
-    backgroundColor: "#6ee7b7",
-    width: 56,
+    backgroundColor: "#001F3F",
+    width: "auto",
     height: 56,
     borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 8,
+    padding: 12,
+},
   modalContainer: {
     flex: 1,
     justifyContent: "center",
