@@ -29,10 +29,28 @@ export default function Auth() {
     const [isOtpModalVisible, setOtpModalVisible] = useState(false)
     const [showPassword, setShowPassword] = useState(false)
     const [activeTab, setActiveTab] = useState('signin') // 'signin' or 'signup'
+    const [timer, setTimer] = useState(0)
     const router = useRouter();
 
-    const openModal = () => setOtpModalVisible(true);
-    const closeModal = () => setOtpModalVisible(false);
+    const openModal = () => {
+        setOtpModalVisible(true);
+        setTimer(60);
+        const interval = setInterval(() => {
+            setTimer((currentTimer) => {
+                if (currentTimer <= 1) {
+                    clearInterval(interval);
+                    return 0;
+                }
+                return currentTimer - 1;
+            });
+        }, 1000);
+    };
+
+    const closeModal = () => {
+        setOtpModalVisible(false);
+        setTimer(0);
+        setOtp('');
+    };
 
     async function signInWithEmail() {
         if (!email || !password) {
@@ -130,6 +148,10 @@ export default function Auth() {
     }
 
     async function verifyOtp() {
+        if (timer === 0) {
+            Alert.alert('OTP Expired', 'Please request a new OTP code');
+            return;
+        }
         if (otp.length !== 6) {
             Alert.alert('Please enter a valid 6-digit code');
             return;
@@ -370,9 +392,13 @@ export default function Auth() {
                             />
                         </View>
                         
-                        <TouchableOpacity style={styles.resendContainer} onPress={requestOtp}>
-                            <Text style={styles.resendText}>Didn't receive a code? Resend</Text>
-                        </TouchableOpacity>
+                        {timer > 0 ? (
+                            <Text style={styles.timerText}>Code expires in {timer}s</Text>
+                        ) : (
+                            <TouchableOpacity style={styles.resendContainer} onPress={requestOtp}>
+                                <Text style={styles.resendText}>Didn't receive a code? Resend</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
             </Modal>
@@ -579,6 +605,11 @@ const styles = StyleSheet.create({
     },
     resendText: {
         color: '#34d399',
+        fontWeight: '500',
+    },
+    timerText: {
+        marginTop: 16,
+        color: '#64748b',
         fontWeight: '500',
     },
 });
