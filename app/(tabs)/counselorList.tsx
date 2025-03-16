@@ -39,6 +39,9 @@ export default function CounselorList() {
   const [allCounselors, setAllCounselors] = useState<any[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("COECS");
   const [loading, setLoading] = useState(true);
+  // Add loading states for message actions
+  const [messageLoading, setMessageLoading] = useState(false);
+  const [loadingCounselorId, setLoadingCounselorId] = useState<string | null>(null);
   const router = useRouter();
   const { session } = useAuth();
   
@@ -59,55 +62,156 @@ export default function CounselorList() {
     );
   }, [selectedDepartment, allCounselors]);
 
-  async function handleNewMessage(counselor_id: string) {
-    const now = new Date().toISOString();
-    let { data: appointmentData, error: appointmentError } = await supabase
-      .from("appointments")
-      .select(`
-      *,
-      availability_schedules (
-        start_time,
-        end_time,
-        date
-      )
-      `)
-      .eq("user_id", session?.user.id)
-      .eq("counselor_id", counselor_id)
-      .gt("availability_schedules.date", now);
+  async function handleNewMessage(user_id: string, userType: 'counselor' | 'secretary') {
+    // Set loading states
+    setMessageLoading(true);
+    setLoadingCounselorId(user_id);
+    
+    try {
+      // Only check for appointments if messaging a counselor
+      if (userType === 'counselor') {
+        const now = new Date().toISOString();
+        let { data: appointmentData, error: appointmentError } = await supabase
+          .from("appointments")
+          .select(`
+          *,
+          availability_schedules (
+            start_time,
+            end_time,
+            date
+          )
+          `)
+          .eq("user_id", session?.user.id)
+          .eq("counselor_id", user_id)
+          .gt("availability_schedules.date", now);
 
-    if (appointmentError) console.error(appointmentError);
-    if (!appointmentData || appointmentData.length === 0) {
-      return alert("You must have a future appointment with this counselor to message.");
-    }
+        if (appointmentError) console.error(appointmentError);
+        if (!appointmentData || appointmentData.length === 0) {
+          setMessageLoading(false);
+          setLoadingCounselorId(null);
+          return alert("You must have a future appointment with this counselor to message.");
+        }
+      }
 
-    const { data, error } = await supabase
-      .from("conversations")
-      .insert([
-        {
-          conversation_type: "active",
-          created_by: session?.user.id,
-          user_id: counselor_id,
-        },
-      ])
-      .select();
-    if (data) {
-      router.push(`/messaging/${data[0].conversation_id}`);
+      // Create a new conversation
+      const { data, error } = await supabase
+        .from("conversations")
+        .insert([
+          {
+            conversation_type: "active",
+            created_by: session?.user.id,
+            user_id: user_id,
+            created_at: new Date().toISOString()
+          },
+        ])
+        .select();
+        
+      if (error) {
+        console.error("Error creating conversation:", error);
+        Alert.alert("Error", "Failed to start conversation. Please try again.");
+        setMessageLoading(false);
+        setLoadingCounselorId(null);
+        return;
+      }
+      
+      if (data) {
+        // After creating the conversation, immediately add a system message to identify the participants
+        const conversationId = data[0].conversation_id;
+        
+        // Get the recipient's name
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("name")
+          .eq("user_id", user_id)
+          .single();
+          
+        if (userError) {
+          console.error("Error fetching user name:", userError);
+        }
+        
+        // Add a system message to help identify the conversation
+        if (userData) {
+          const welcomeMessage = `You are now connected with ${userData.name} (${userType}).`;
+          
+          await supabase.from("messages").insert([
+            {
+              conversation_id: conversationId,
+              sender_id: session?.user.id, // System message sent as current user for simplicity
+              message_content: welcomeMessage,
+              message_type: "system",
+              sent_at: new Date().toISOString(),
+              is_read: true,
+              is_delivered: true
+            }
+          ]);
+        }
+        
+        // Clear loading states before navigation
+        setMessageLoading(false);
+        setLoadingCounselorId(null);
+        
+        // Navigate to the messaging screen
+        router.push(`/messaging/${conversationId}`);
+      }
+    } catch (e) {
+      console.error("Unexpected error in handleNewMessage:", e);
+      Alert.alert("Error", "An unexpected error occurred. Please try again.");
+      setMessageLoading(false);
+      setLoadingCounselorId(null);
     }
   }
 
   async function fetchCounselors() {
+    // Fetch counselors with their assigned secretaries
     let { data, error } = await supabase
       .from("users")
       .select("user_id, name, contact_number, department_assigned")
       .eq("user_type", "counselor");
 
-    if (error) console.error(error);
-    else {
-      setAllCounselors(data || []);
-      setCounselors((data || []).filter(
-        (counselor: any) => counselor.department_assigned === selectedDepartment
-      ));
+    if (error) {
+      console.error("Error fetching counselors:", error);
+      setLoading(false);
+      return;
     }
+    
+    const counselorsData = data || [];
+    
+    // For each counselor, fetch the assigned secretary
+    const counselorsWithSecretaries = await Promise.all(
+      counselorsData.map(async (counselor) => {
+        // Fetch secretary assignment
+        const { data: secAssignmentData, error: secAssignmentError } = await supabase
+          .from("secretary_assignments")
+          .select(`
+            secretary_id,
+            users:secretary_id (
+              user_id,
+              name,
+              contact_number
+            )
+          `)
+          .eq("counselor_id", counselor.user_id)
+          .single();
+        
+        if (secAssignmentError && secAssignmentError.code !== 'PGRST116') { 
+          // PGRST116 is the error code for no rows returned
+          console.error("Error fetching secretary assignment:", secAssignmentError);
+        }
+        
+        return {
+          ...counselor,
+          secretary: secAssignmentData?.users || null
+        };
+      })
+    );
+    
+    setAllCounselors(counselorsWithSecretaries);
+    setCounselors(
+      counselorsWithSecretaries.filter(
+        (counselor: any) => counselor.department_assigned === selectedDepartment
+      )
+    );
+    
     setLoading(false);
   }
 
@@ -209,7 +313,11 @@ export default function CounselorList() {
     return `${formattedDate}, ${formatTime(startTime)} - ${formatTime(endTime)}`;
   }
 
-  const renderItem = ({ item }: { item: any }) => (
+  const renderItem = ({ item }: { item: any }) => {
+    const isCounselorLoading = messageLoading && loadingCounselorId === item.user_id;
+    const isSecretaryLoading = messageLoading && item.secretary && loadingCounselorId === item.secretary.user_id;
+    
+    return (
     <TouchableOpacity
       key={item.user_id}
       style={styles.item}
@@ -226,18 +334,64 @@ export default function CounselorList() {
       <View style={styles.details}>
         <Text style={styles.name}>{item.name}</Text>
         <Text style={styles.contact}>{item.contact_number}</Text>
+        
+        {item.secretary && (
+          <View style={styles.secretaryContainer}>
+            <Text style={styles.secretaryLabel}>Secretary:</Text>
+            <Text style={styles.secretaryName}>{item.secretary.name}</Text>
+          </View>
+        )}
       </View>
-      <TouchableOpacity
-        style={styles.messageButton}
-        onPress={(e) => {
-          e.stopPropagation();
-          handleNewMessage(item.user_id);
-        }}
-      >
-        <MaterialIcons name="message" size={24} color="white" />
-      </TouchableOpacity>
+      
+      <View style={styles.buttonContainer}>
+        {/* Counselor message button */}
+        <TouchableOpacity
+          style={[
+            styles.messageButton,
+            isCounselorLoading && styles.messageButtonDisabled
+          ]}
+          onPress={(e) => {
+            e.stopPropagation();
+            if (!messageLoading) {
+              handleNewMessage(item.user_id, 'counselor');
+            }
+          }}
+          disabled={messageLoading}
+        >
+          {isCounselorLoading ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <MaterialIcons name="message" size={24} color="white" />
+          )}
+        </TouchableOpacity>
+        
+        {/* Secretary message button - only show if secretary exists */}
+        {item.secretary && (
+          <TouchableOpacity
+            style={[
+              styles.messageButton, 
+              styles.secretaryMessageButton,
+              isSecretaryLoading && styles.messageButtonDisabled
+            ]}
+            onPress={(e) => {
+              e.stopPropagation();
+              if (!messageLoading) {
+                handleNewMessage(item.secretary.user_id, 'secretary');
+              }
+            }}
+            disabled={messageLoading}
+          >
+            {isSecretaryLoading ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <MaterialIcons name="contact-mail" size={24} color="white" />
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
     </TouchableOpacity>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -408,6 +562,29 @@ const styles = StyleSheet.create({
   contact: {
     fontSize: 14,
     color: "#666",
+    marginBottom: 6,
+  },
+  secretaryContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  secretaryLabel: {
+    fontSize: 13,
+    color: "#555",
+    fontWeight: "500",
+    marginRight: 4,
+  },
+  secretaryName: {
+    fontSize: 13,
+    color: "#555",
+    fontStyle: "italic",
+  },
+  buttonContainer: {
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
   },
   messageButton: {
     backgroundColor: "#6ee7b7",
@@ -421,6 +598,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 1.5,
     elevation: 2,
+  },
+  secretaryMessageButton: {
+    backgroundColor: "#90caf9",
   },
   loader: {
     flex: 1,
@@ -568,5 +748,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#999",
     marginTop: 12,
+  },
+  messageButtonDisabled: {
+    opacity: 0.6,
   },
 });
