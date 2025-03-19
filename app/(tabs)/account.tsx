@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { StyleSheet, View, Alert, Text, ScrollView, Image, TouchableOpacity, ActivityIndicator } from "react-native";
+import { StyleSheet, View, Alert, Text, ScrollView, Image, TouchableOpacity, ActivityIndicator, Modal, Dimensions } from "react-native";
 import { Button, Input } from "@rneui/themed";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
@@ -31,6 +31,7 @@ export default function Account() {
   const [showProgramDropdown, setShowProgramDropdown] = useState(false);
   const [showYearLevelDropdown, setShowYearLevelDropdown] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
+  const [showFullImage, setShowFullImage] = useState(false);
 
   const router = useRouter();
   const navigateToHome = () => router.push("/(tabs)/");
@@ -169,46 +170,61 @@ export default function Account() {
         try {
           console.log("Preparing to upload image:", imageFile);
           
-          // Convert URI to Base64 for Supabase storage
+          // Create file info
           const fileInfo = await FileSystem.getInfoAsync(imageFile);
           if (!fileInfo.exists) {
             throw new Error("File doesn't exist");
           }
-
-          const base64 = await FileSystem.readAsStringAsync(imageFile, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
           
-          const fileName = `users/${session.user.id}-${Date.now()}.jpg`;
+          // Create a unique filename
+          const fileExt = imageFile.split('.').pop() || 'jpg';
+          const fileName = `users/${session.user.id}-${Date.now()}.${fileExt}`;
           console.log("Uploading to:", fileName);
 
-          // Convert Base64 to Blob for Supabase
-          const blob = await fetch(`data:image/jpeg;base64,${base64}`).then(res => res.blob());
+          // Create FormData (simpler approach with less memory usage)
+          const formData = new FormData();
+          formData.append('file', {
+            uri: imageFile,
+            name: fileName,
+            type: `image/${fileExt}`
+          } as any);
+
+          // Upload using fetch directly to Supabase API
+          const response = await fetch(
+            `${SUPABASE_URL}/storage/v1/object/profile_pictures/${fileName}`, 
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'x-upsert': 'true'
+              },
+              body: formData
+            }
+          );
           
-          const { data, error: uploadError } = await supabase
+          if (!response.ok) {
+            const errorData = await response.text();
+            console.error('Upload response error:', errorData);
+            throw new Error(`Upload failed with status ${response.status}`);
+          }
+          
+          // Generate the public URL
+          const { data: urlData } = await supabase
             .storage
             .from('profile_pictures')
-            .upload(fileName, blob, {
-              contentType: 'image/jpeg',
-              cacheControl: '3600',
-              upsert: false,
-            });
-
-          if (uploadError) {
-            console.error('Image Upload Error:', uploadError);
-            // Alert.alert('Error', 'Failed to upload image. Continuing without updating profile picture.');
-            // Continue with update but without changing image
-          } else {
-            console.log("Image upload successful:", data);
-            
-            // Manually construct public URL
-            imageUrl = `${SUPABASE_URL}/storage/v1/object/public/profile_pictures/${fileName}`;
+            .getPublicUrl(fileName);
+          
+          if (urlData && urlData.publicUrl) {
+            imageUrl = urlData.publicUrl;
             console.log("New image URL:", imageUrl);
+          } else {
+            throw new Error("Failed to get image URL");
           }
         } catch (imgError) {
           console.error("Image processing error:", imgError);
-          // Alert.alert('Error', 'Failed to process image. Continuing without updating profile picture.');
-          // Continue with update but without changing image
+          Alert.alert('Error', 'Failed to process image. Please try again.');
+          setLoading(false);
+          return;
         }
       }
 
@@ -267,13 +283,16 @@ export default function Account() {
         throw error;
       }
 
+      // Clear the imageFile state after successful update
+      setImageFile(null);
+      
       Alert.alert("Success", "Profile updated successfully!");
       
       // Refresh the profile data
       getProfile();
     } catch (error) {
       console.error("Profile update error:", error instanceof Error ? error.message : error);
-      // Alert.alert("Error", error instanceof Error ? error.message : 'An unknown error occurred');
+      Alert.alert("Error", error instanceof Error ? error.message : 'An unknown error occurred');
     } finally {
       setLoading(false); // Always reset loading state
     }
@@ -302,74 +321,15 @@ export default function Account() {
       });
 
       if (!result.canceled && result.assets && result.assets[0]) {
-        setLoading(true);
+        // Just store the URI in state for now, don't upload yet
+        setImageFile(result.assets[0].uri);
         
-        try {
-          // Get file info and create a readable name
-          const uri = result.assets[0].uri;
-          const fileExt = uri.split('.').pop(); // Get file extension
-          const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
-          const filePath = `users/${fileName}`;
-          
-          // Read file as base64
-          const base64 = await FileSystem.readAsStringAsync(uri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          
-          // Convert to blob
-          const blob = await fetch(`data:image/${fileExt};base64,${base64}`).then(res => res.blob());
-          
-          // Upload to Supabase Storage
-          const { data, error: uploadError } = await supabase
-            .storage
-            .from('profile_pictures')
-            .upload(filePath, blob, {
-              contentType: `image/${fileExt}`,
-              cacheControl: '3600',
-              upsert: true, // Changed to true to replace existing files
-            });
-            
-          if (uploadError) {
-            throw new Error(uploadError.message);
-          }
-          
-          // Generate a public URL for the uploaded image
-          const { data: urlData } = await supabase
-            .storage
-            .from('profile_pictures')
-            .getPublicUrl(filePath);
-            
-          if (!urlData || !urlData.publicUrl) {
-            throw new Error('Failed to get public URL');
-          }
-          
-          // Store the URL to your state
-          const publicUrl = urlData.publicUrl;
-          setProfileImageUrl(publicUrl);
-          
-          // Update the profile with the new image URL
-          const { error: updateError } = await supabase
-            .from('users')
-            .update({ profile_image_url: publicUrl })
-            .eq('user_id', session.user.id);
-            
-          if (updateError) {
-            throw new Error(updateError.message);
-          }
-          
-          Alert.alert('Success', 'Profile picture updated successfully!');
-        } catch (error) {
-          console.error('Image upload error:', error);
-          // Alert.alert('Error', `Failed to upload image: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          // Keep showing the previous image if upload fails
-        } finally {
-          setLoading(false);
-        }
+        // Set temporary preview
+        setProfileImageUrl(result.assets[0].uri);
       }
     } catch (error) {
       console.error("Image picker error:", error);
       Alert.alert("Error", "Failed to select image");
-      setLoading(false);
     }
   };
   const genderOptions = ["Male", "Female", "Non-binary", "Prefer not to say"];
@@ -386,23 +346,25 @@ export default function Account() {
       <View style={styles.profileImageContainer}>
         {profileImageUrl ? (
           <View>
-            <Image 
-              source={{ uri: profileImageUrl }} 
-              style={styles.profileImage} 
-              onLoadStart={() => setImageLoading(true)}
-              onLoadEnd={() => setImageLoading(false)}
-              onError={(e) => {
-                console.error("Image load error:", e.nativeEvent.error);
-                setProfileImageUrl(null);
-              }}
-            />
-            {imageLoading && (
-              <ActivityIndicator 
-                style={StyleSheet.absoluteFill} 
-                size="small" 
-                color="#34d399"
+            <TouchableOpacity onPress={() => setShowFullImage(true)}>
+              <Image 
+                source={{ uri: profileImageUrl }} 
+                style={styles.profileImage} 
+                onLoadStart={() => setImageLoading(true)}
+                onLoadEnd={() => setImageLoading(false)}
+                onError={(e) => {
+                  console.error("Image load error:", e.nativeEvent.error);
+                  setProfileImageUrl(null);
+                }}
               />
-            )}
+              {imageLoading && (
+                <ActivityIndicator 
+                  style={StyleSheet.absoluteFill} 
+                  size="small" 
+                  color="#34d399"
+                />
+              )}
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.noImageContainer}>
@@ -413,6 +375,33 @@ export default function Account() {
           <Text style={styles.changeImageButtonText}>Change Profile Image</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Add the Modal component here */}
+      <Modal
+        visible={showFullImage}
+        transparent={true}
+        onRequestClose={() => setShowFullImage(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowFullImage(false)}
+        >
+          <View style={styles.modalContent}>
+            <Image 
+              source={{ uri: profileImageUrl || undefined }} 
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setShowFullImage(false)}
+            >
+              <Text style={styles.closeButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <View style={styles.formContainer}>
         <View style={styles.inputContainer}>
@@ -959,5 +948,42 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     backgroundColor: '#9ca3af',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height * 0.8,
+  },
+  closeButton: {
+    position: 'absolute',
+    bottom: 40,
+    backgroundColor: '#34d399',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  closeButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
