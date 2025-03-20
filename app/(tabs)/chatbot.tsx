@@ -41,8 +41,9 @@ export type ChatbotView = {
 };
 
 const openai = new OpenAI({
-  apiKey: Config.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY,
 });
+// console.log('OpenAI API Key:', process.env.OPENAI_API_KEY);
 
 const formatTimestamp = (timestamp: string) => {
   const date = new Date(timestamp);
@@ -100,7 +101,7 @@ const Chatbot = () => {
       // await AsyncStorage.removeItem('chatbotTermsAccepted');
       
       const hasAccepted = await AsyncStorage.getItem('chatbotTermsAccepted');
-      console.log('Initial terms check:', hasAccepted);
+      // console.log('Initial terms check:', hasAccepted);
       
       if (!hasAccepted) {
         setShowTerms(true);
@@ -124,13 +125,13 @@ const Chatbot = () => {
         console.error('Error fetching chat data:', chatError);
       } else {
         setChatLog(chatData || []);
-        console.log('Initial chat data length:', chatData?.length);
+        // console.log('Initial chat data length:', chatData?.length);
       }
 
       // Check terms based on chat data
       const hasAccepted = await AsyncStorage.getItem('chatbotTermsAccepted');
       if (!hasAccepted && (!chatData || chatData.length === 0)) {
-        console.log('Setting show terms to true');
+        // console.log('Setting show terms to true');
         setShowTerms(true);
       }
 
@@ -163,7 +164,7 @@ const Chatbot = () => {
     if (error) {
       console.error("Error fetching chat log:", error);
     } else {
-      console.log("Fetched chat log:", data);
+      // console.log("Fetched chat log:", data);
       setChatLog(data || []);
       
       // Check terms right after setting chat log
@@ -219,7 +220,7 @@ const Chatbot = () => {
     if (error) {
       console.error("Error fetching mood data:", error);
     } else {
-      console.log("Fetched mood data:", JSON.stringify(data, null, 2));
+      // console.log("Fetched mood data:", JSON.stringify(data, null, 2));
       setMoodData(data as any);
     }
   }
@@ -319,7 +320,7 @@ const Chatbot = () => {
       .single();
 
     if (error && error.code !== "PGRST116") {
-      console.error("Error fetching answer ID:", error);
+      // console.error("Error fetching answer ID:", error);
       return null;
     }
 
@@ -393,17 +394,17 @@ const Chatbot = () => {
       .single();
   
     if (predefinedAnswer) {
-      console.log("Fetched predefined answer:", predefinedAnswer);
+      // console.log("Fetched predefined answer:", predefinedAnswer);
       responseText += predefinedAnswer.chatbot_answer + " ";
     } else if (error && error.code !== "PGRST116") {
-      console.log("No predefined answer found for question:", error);
+      // console.log("No predefined answer found for question:", error);
     }
   
     // Get conversation context analysis
     const conversationContext = await analyzeConversationContext();
-    console.log("Conversation context:", conversationContext);
+    // console.log("Conversation context:", conversationContext);
   
-    console.log("Proceeding to OpenAI API call");
+    // console.log("Proceeding to OpenAI API call");
   
     const prompt = `You are a mental health chat bot and is expected to assist the user, reply in a short and meaningful message.
       
@@ -419,7 +420,7 @@ const Chatbot = () => {
   Response:`;
   
     try {
-      console.log("Sending request to OpenAI with prompt:", prompt);
+      // console.log("Sending request to OpenAI with prompt:", prompt);
       const response = await openai.chat.completions.create({
         model: "gpt-4",
         messages: [{ role: "user", content: prompt }],
@@ -427,10 +428,10 @@ const Chatbot = () => {
   
       responseText += response.choices[0]?.message?.content || "";
   
-      console.log("Generated response from OpenAI:", responseText.trim());
+      // console.log("Generated response from OpenAI:", responseText.trim());
       return responseText.trim();
     } catch (err) {
-      console.error("Error generating response from OpenAI:", err);
+      // console.error("Error generating response from OpenAI:", err);
       return responseText.trim() + " Sorry, there was an error generating a dynamic response.";
     }
   }

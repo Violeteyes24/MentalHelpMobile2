@@ -19,7 +19,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.violeteyes24.expousermanagement"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -27,6 +28,14 @@
     "plugins": [
       "expo-router"
     ],
-    "scheme": "expo-user-management" 
+    "scheme": "expo-user-management",
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "61f0113e-9fbb-48a8-b5c1-8044c658ae10"
+      }
+    }
   }
 }
