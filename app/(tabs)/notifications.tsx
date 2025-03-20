@@ -50,6 +50,7 @@ interface Notification {
   notification_content: string;
   sent_at: string;
   sender_name?: string;
+  status: string;
 }
 
 // Interface for appointment notifications
@@ -76,6 +77,7 @@ const NotificationUI: React.FC = () => {
   const [appointmentNotifications, setAppointmentNotifications] = useState<AppointmentNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const { session } = useAuth();
+  const [activeTab, setActiveTab] = useState<'appointment' | 'regular'>('appointment');
 
   useEffect(() => {
     if (session?.user.id) {
@@ -86,7 +88,7 @@ const NotificationUI: React.FC = () => {
   }, [session?.user.id]);
 
   const setupSubscriptions = () => {
-    console.log('Setting up real-time subscriptions');
+    // console.log('Setting up real-time subscriptions');
     
     // Subscription for regular notifications
     const notificationsChannel = supabase.channel('notifications-channel')
@@ -102,7 +104,7 @@ const NotificationUI: React.FC = () => {
         }
       )
       .subscribe((status) => {
-        console.log(`Notifications subscription: ${status}`);
+        // console.log(`Notifications subscription: ${status}`);
       });
 
     // Subscription for appointments table
@@ -117,20 +119,20 @@ const NotificationUI: React.FC = () => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             // If user is involved
             if (payload.new && payload.new.user_id === session?.user.id) {
-              console.log('Appointment update involves current user');
+              // console.log('Appointment update involves current user');
               await fetchAppointmentNotifications();
             }
           }
           
           // For deletions - refresh anyway to be safe
           if (payload.eventType === 'DELETE' && payload.old) {
-            console.log('Appointment deleted - refreshing');
+            // console.log('Appointment deleted - refreshing');
             await fetchAppointmentNotifications();
           }
         }
       )
       .subscribe((status) => {
-        console.log(`Appointments subscription: ${status}`);
+        // console.log(`Appointments subscription: ${status}`);
       });
 
     // Subscription for group appointments
@@ -143,18 +145,18 @@ const NotificationUI: React.FC = () => {
           
           // If the inserted record has the current user's ID, refresh appointment notifications
           if (payload.new.user_id === session?.user.id) {
-            console.log('Group appointment added');
+            // console.log('Group appointment added');
             await fetchAppointmentNotifications();
           }
         }
       )
       .subscribe((status) => {
-        console.log(`Group appointments subscription: ${status}`);
+        // console.log(`Group appointments subscription: ${status}`);
       });
 
     // Cleanup subscriptions
     return () => {
-      console.log('Cleaning up subscriptions');
+      // console.log('Cleaning up subscriptions');
       supabase.removeChannel(notificationsChannel);
       supabase.removeChannel(appointmentsChannel);
       supabase.removeChannel(groupAppointmentsChannel);
@@ -169,17 +171,20 @@ const NotificationUI: React.FC = () => {
   const fetchRegularNotifications = async () => {
     try {
       setLoading(true);
-      console.log('Fetching regular notifications');
+      // console.log('Fetching regular notifications');
       
       const { data, error } = await supabase
         .from('notifications')
         .select(`
           notification_id,
-          content,
-          created_at,
-          notification_type 
+          user_id,
+          notification_content,
+          status,
+          sent_at
         `)
-        .order('created_at', { ascending: false });
+        .eq('user_id', session?.user.id)
+        .eq('status', 'sent')
+        .order('sent_at', { ascending: false });
 
       if (error) throw error;
       
@@ -189,9 +194,10 @@ const NotificationUI: React.FC = () => {
         return {
           notification_id: item.notification_id,
           user_id: item.user_id,
-          notification_content: item.content,
-          sent_at: item.created_at,
-          sender_name: "Director"
+          notification_content: item.notification_content,
+          sent_at: item.sent_at,
+          sender_name: "Director",
+          status: item.status
         };
       });
       
@@ -209,7 +215,7 @@ const NotificationUI: React.FC = () => {
       setLoading(true);
       if (!session?.user.id) return;
       
-      console.log('Fetching appointment notifications');
+      // console.log('Fetching appointment notifications');
       const appointmentNotifications: AppointmentNotification[] = [];
 
       // Debug appointments table structure (commented out for production)
@@ -418,12 +424,12 @@ const NotificationUI: React.FC = () => {
               })
               .filter(Boolean) || [];
             
-            // Now we can safely construct the notification for group appointments, using availability data instead of created_at for dates
+            // Now we can safely construct the notification for group appointments, using availability data instead of sent_at for dates
             appointmentNotifications.push({
               id: groupAppointment.g_appointment_id,
               type: 'group_added',
               content: `You have been added to a group appointment on ${formatDate(new Date(availabilityData.date))} by ${counselorData.name}.${memberNames.length > 0 ? ` (${memberNames.length} other participants)` : ' You are currently the only participant.'}`,
-              date: availabilityData.date + 'T' + availabilityData.start_time, // Use availability date+time for sorting instead of group appointment's created_at
+              date: availabilityData.date + 'T' + availabilityData.start_time, // Use availability date+time for sorting instead of group appointment's sent_at
               appointmentDate: availabilityData.date,
               appointmentTime: `${convert24To12Hour(availabilityData.start_time)} - ${convert24To12Hour(availabilityData.end_time)}`,
               counselorName: counselorData.name,
@@ -591,31 +597,20 @@ const NotificationUI: React.FC = () => {
   };
 
   const getSections = (): NotificationSection[] => {
-    try {
-      const sections: NotificationSection[] = [];
-      
-      if (appointmentNotifications.length > 0) {
-        sections.push({
-          title: 'Appointment Updates',
-          data: appointmentNotifications,
-          type: 'appointment'
-        });
-      }
-      
-      if (regularNotifications.length > 0) {
-        sections.push({
-          title: 'Notifications',
-          data: regularNotifications,
-          type: 'regular'
-        });
-      }
-      
-      return sections;
-    } catch (error) {
-      console.error('Error creating notification sections:', error);
-      // Return a minimal fallback section if there's an error
-      return [];
+    if (activeTab === 'appointment' && appointmentNotifications.length > 0) {
+      return [{
+        title: 'Appointment Updates',
+        data: appointmentNotifications,
+        type: 'appointment'
+      }];
+    } else if (activeTab === 'regular' && regularNotifications.length > 0) {
+      return [{
+        title: 'Notifications',
+        data: regularNotifications,
+        type: 'regular'
+      }];
     }
+    return [];
   };
 
   const sections = getSections();
@@ -625,50 +620,32 @@ const NotificationUI: React.FC = () => {
     <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
       <View style={styles.container}>
         <Text style={styles.title}>Notifications</Text>
-        
-        {/* Debug info section */}
-        {/* {!loading && (
-          <View style={styles.debugInfo}>
-            <Text style={styles.debugText}>Regular notifications: {regularNotifications.length}</Text>
-            <Text style={styles.debugText}>Appointment notifications: {appointmentNotifications.length}</Text>
-            <Text style={styles.debugText}>Total sections: {sections.length}</Text>
-            <Text style={styles.debugTextSmall}>Check console logs for detailed debug info</Text>
-          </View>
-        )} */}
-        
-        {/* Enhanced debug section in development mode - only visible during development */}
-        {/* {__DEV__ && (
-          <View style={[styles.debugSection, { opacity: 0.7 }]}>
-            <View style={styles.debugButtonRow}>
-              <TouchableOpacity 
-                style={[styles.debugButton, { minWidth: 100 }]} 
-                onPress={handleRefresh}
-              >
-                <Text style={styles.debugButtonText}>🔄 Refresh</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.debugButton, { minWidth: 100 }]} 
-                onPress={() => {
-                  console.log('Resetting subscriptions...');
-                  setupSubscriptions();
-                  Alert.alert('Subscriptions Reset', 'Connections refreshed');
-                }}
-              >
-                <Text style={styles.debugButtonText}>🔌 Reset</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )} */}
-        
-        {/* Loading indicator */}
+
+        {/* Toggle Switch */}
+        <View style={styles.toggleContainer}>
+          <TouchableOpacity
+            style={[styles.toggleButton, activeTab === 'appointment' && styles.activeToggle]}
+            onPress={() => setActiveTab('appointment')}
+          >
+            <Text style={[styles.toggleText, activeTab === 'appointment' && styles.activeToggleText]}>
+              Appointment Updates
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.toggleButton, activeTab === 'regular' && styles.activeToggle]}
+            onPress={() => setActiveTab('regular')}
+          >
+            <Text style={[styles.toggleText, activeTab === 'regular' && styles.activeToggleText]}>
+              Notifications
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {loading && (
           <View style={styles.loadingIndicator}>
             <Text>Loading notifications...</Text>
           </View>
         )}
-        
-        {/* Notifications list */}
         {!hasNotifications ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>No notifications yet</Text>
@@ -851,6 +828,29 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontWeight: '500',
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 15,
+  },
+  toggleButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    borderRadius: 20,
+    marginHorizontal: 5,
+  },
+  activeToggle: {
+    backgroundColor: '#1f2937',
+  },
+  toggleText: {
+    fontSize: 14,
+    color: '#1f2937',
+  },
+  activeToggleText: {
+    color: '#ffffff',
   },
 });
 

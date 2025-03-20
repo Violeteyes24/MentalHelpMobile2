@@ -41,10 +41,10 @@ export default function Account() {
   
   useEffect(() => {
     if (session?.user?.id) {
-      console.log("User ID in useEffect:", session.user.id);
+      // console.log("User ID in useEffect:", session.user.id);
       getProfile();
     } else {
-      console.log("No valid session or user ID found");
+      // console.log("No valid session or user ID found");
     }
   }, [session]);
 
@@ -56,7 +56,7 @@ export default function Account() {
         throw new Error("No user ID available!");
       }
 
-      console.log("Fetching profile for user ID:", session.user.id);
+      // console.log("Fetching profile for user ID:", session.user.id);
       
       const { data, error, status } = await supabase
         .from("users")
@@ -73,11 +73,11 @@ export default function Account() {
           // Status 406 usually means no data found, which we handle differently
           throw error;
         }
-        console.log("No profile data found, may need to create a new one");
+        // console.log("No profile data found, may need to create a new one");
       }
 
       if (data) {
-        console.log("Profile data:", data);
+        // console.log("Profile data:", data);
         setName(data.name || "");
         setUserName(data.username || "");
         setAddress(data.address || "");
@@ -101,16 +101,16 @@ export default function Account() {
         if (data.profile_image_url) {
           // Check if the URL is a valid web URL (not a local file URI)
           if (data.profile_image_url.startsWith('http')) {
-            console.log("Setting profile image:", data.profile_image_url);
+            // console.log("Setting profile image:", data.profile_image_url);
             setProfileImageUrl(data.profile_image_url);
           } else {
-            console.log("Invalid image URL format, setting to null:", data.profile_image_url);
+            // console.log("Invalid image URL format, setting to null:", data.profile_image_url);
             setProfileImageUrl(null);
           }
         }
       }
     } catch (error) {
-      console.error("Error fetching profile:", error instanceof Error ? error.message : 'An unknown error occurred');
+      // console.error("Error fetching profile:", error instanceof Error ? error.message : 'An unknown error occurred');
       Alert.alert("Error", "Failed to load profile data. Please try again.");
     } finally {
       setLoading(false);
@@ -168,7 +168,7 @@ export default function Account() {
       // Handle image upload if a new image was selected
       if (imageFile) {
         try {
-          console.log("Preparing to upload image:", imageFile);
+          // console.log("Preparing to upload image:", imageFile);
           
           // Create file info
           const fileInfo = await FileSystem.getInfoAsync(imageFile);
@@ -179,7 +179,7 @@ export default function Account() {
           // Create a unique filename
           const fileExt = imageFile.split('.').pop() || 'jpg';
           const fileName = `users/${session.user.id}-${Date.now()}.${fileExt}`;
-          console.log("Uploading to:", fileName);
+          // console.log("Uploading to:", fileName);
 
           // Create FormData (simpler approach with less memory usage)
           const formData = new FormData();
@@ -216,7 +216,7 @@ export default function Account() {
           
           if (urlData && urlData.publicUrl) {
             imageUrl = urlData.publicUrl;
-            console.log("New image URL:", imageUrl);
+            // console.log("New image URL:", imageUrl);
           } else {
             throw new Error("Failed to get image URL");
           }
@@ -274,7 +274,7 @@ export default function Account() {
         updates.user_type = userData.user_type;
       }
 
-      console.log("Updating profile with:", updates);
+      // console.log("Updating profile with:", updates);
 
       const { error } = await supabase.from("users").upsert(updates);
 
