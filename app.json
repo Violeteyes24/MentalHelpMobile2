@@ -35,7 +35,8 @@
       },
       "eas": {
         "projectId": "61f0113e-9fbb-48a8-b5c1-8044c658ae10"
-      }
+      },
+      "emailRedirectTo": "expo-user-management://confirm-email"
     }
   }
 }

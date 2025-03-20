@@ -157,11 +157,12 @@ export default function Auth() {
         
         try {
             // Sign up with email and password along with additional user data (including gender)
+            console.log('Attempting to sign up with:', { email, name, username });
             const { data, error } = await supabase.auth.signUp({
                 email: email,
                 password: password,
                 options: {
-                    emailRedirectTo: window.location.origin,
+                    emailRedirectTo: 'expo-user-management://confirm-email', // Deep link for React Native
                     data: {
                         name,
                         username,
@@ -177,14 +178,18 @@ export default function Auth() {
             });
 
             if (error) {
+                console.error('Sign up error:', error);
                 Alert.alert('Sign Up Error', error.message);
             } else {
+                console.log('Sign up successful, user data:', data);
                 // Insert new user record into the public.users table using the returned user id.
                 const userId = data.user?.id;
                 if (userId) {
+                    console.log('Inserting user record with ID:', userId);
+                    // Use upsert instead of insert to handle potential duplicates
                     const { error: insertError } = await supabase
                         .from('users')
-                        .insert({
+                        .upsert({
                             user_id: userId,
                             user_type: 'user',
                             name,
@@ -196,22 +201,59 @@ export default function Auth() {
                             department: department,
                             program,
                             program_year_level: programYearLevel ? parseInt(programYearLevel) : null,
+                        }, {
+                            onConflict: 'user_id'
                         });
                     if (insertError) {
-                        Alert.alert('Insert Error', insertError.message);
+                        console.error('Insert error:', insertError);
+                        Alert.alert('Insert Error', `Database error: ${insertError.message}`);
                     } else {
-                        Alert.alert('Verification Email Sent', 'Please check your email for the confirmation link.');
+                        console.log('User inserted successfully');
+                        Alert.alert(
+                            'Verification Email Sent',
+                            'Please check your email for the confirmation link. After confirming, you can sign in.',
+                            [
+                                {
+                                    text: 'Resend Email',
+                                    onPress: () => resendConfirmationEmail(email)
+                                },
+                                {
+                                    text: 'OK',
+                                    style: 'default'
+                                }
+                            ]
+                        );
                         setActiveTab('signin');
                     }
                 } else {
+                    console.error('User ID missing after sign-up');
                     Alert.alert('Error', 'User id missing after sign-up.');
                 }
             }
         } catch (err) {
+            console.error('Unexpected error during sign up:', err);
             Alert.alert('Error', 'An error occurred during sign up');
         }
         
         setLoading(false);
+    }
+
+    // Add new function to resend confirmation email
+    async function resendConfirmationEmail(email: string) {
+        try {
+            const { error } = await supabase.auth.resend({
+                type: 'signup',
+                email: email
+            });
+            
+            if (error) {
+                Alert.alert('Error', error.message);
+            } else {
+                Alert.alert('Success', 'Confirmation email has been resent. Please check your inbox.');
+            }
+        } catch (err) {
+            Alert.alert('Error', 'Failed to resend confirmation email');
+        }
     }
 
     async function verifyOtp() {
