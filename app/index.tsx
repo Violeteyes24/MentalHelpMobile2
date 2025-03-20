@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase'
 import { Button, Input, Icon } from '@rneui/themed'
 import { useRouter } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
+import DateTimePicker from '@react-native-community/datetimepicker'
 
 // Tells Supabase Auth to continuously refresh the session automatically if
 // the app is in the foreground. When this is added, you will continue to receive
@@ -24,6 +25,8 @@ AppState.addEventListener('change', (state) => {
 export default function Auth() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    // Added confirmPassword state variable
+    const [confirmPassword, setConfirmPassword] = useState('')
     const [loading, setLoading] = useState(false)
     const [otp, setOtp] = useState('')
     const [isOtpModalVisible, setOtpModalVisible] = useState(false)
@@ -31,6 +34,23 @@ export default function Auth() {
     const [activeTab, setActiveTab] = useState('signin') // 'signin' or 'signup'
     const [timer, setTimer] = useState(0)
     const router = useRouter();
+
+    // New state variables for additional sign up fields
+    const [name, setName] = useState('')
+    const [username, setUsername] = useState('')
+    const [address, setAddress] = useState('')
+    const [contactNumber, setContactNumber] = useState('')
+    const [birthday, setBirthday] = useState(new Date())
+    const [showDatePicker, setShowDatePicker] = useState(false)
+    const [department, setDepartment] = useState('')
+    const [program, setProgram] = useState('')
+    const [programYearLevel, setProgramYearLevel] = useState('')
+    const [isDeptModalVisible, setDeptModalVisible] = useState(false)
+    const [isProgramModalVisible, setProgramModalVisible] = useState(false)
+    const [isYearModalVisible, setYearModalVisible] = useState(false)
+    const [currentSignupStep, setCurrentSignupStep] = useState(1) // For multi-step form
+    const [gender, setGender] = useState('')
+    const [isGenderModalVisible, setGenderModalVisible] = useState(false)
 
     const openModal = () => {
         setOtpModalVisible(true);
@@ -50,6 +70,13 @@ export default function Auth() {
         setOtpModalVisible(false);
         setTimer(0);
         setOtp('');
+    };
+
+    const onDateChange = (event: any, selectedDate: any) => {
+        setShowDatePicker(false);
+        if (selectedDate) {
+            setBirthday(selectedDate);
+        }
     };
 
     async function signInWithEmail() {
@@ -112,33 +139,73 @@ export default function Auth() {
     }
 
     async function signUpWithEmail() {
-        if (!email || !password) {
-            Alert.alert('Please enter your email and password');
+        if (!email || !password || !name) {
+            Alert.alert('Please enter your email, password, and full name')
             return;
         }
-        
+        // Added password match validation for sign up
+        if(password !== confirmPassword){
+            Alert.alert('Password Error', 'Passwords do not match');
+            return;
+        }
         if (password.length < 6) {
-            Alert.alert('Password Error', 'Password must be at least 6 characters');
+            Alert.alert('Password Error', 'Password must be at least 6 characters')
             return;
         }
         
         setLoading(true);
         
         try {
-            const { error } = await supabase.auth.signUp({
+            // Sign up with email and password along with additional user data (including gender)
+            const { data, error } = await supabase.auth.signUp({
                 email: email,
                 password: password,
                 options: {
-                    // This ensures the user needs to verify their email
                     emailRedirectTo: window.location.origin,
+                    data: {
+                        name,
+                        username,
+                        address,
+                        contact_number: contactNumber,
+                        birthday: birthday ? birthday.toISOString().split('T')[0] : null,
+                        gender,
+                        department,
+                        program,
+                        program_year_level: programYearLevel ? parseInt(programYearLevel) : null,
+                    }
                 }
             });
 
             if (error) {
                 Alert.alert('Sign Up Error', error.message);
             } else {
-                Alert.alert('Success', 'Verification email sent. Please check your inbox to complete registration.');
-                setActiveTab('signin');
+                // Insert new user record into the public.users table using the returned user id.
+                const userId = data.user?.id;
+                if (userId) {
+                    const { error: insertError } = await supabase
+                        .from('users')
+                        .insert({
+                            user_id: userId,
+                            user_type: 'user',
+                            name,
+                            username,
+                            address,
+                            contact_number: contactNumber,
+                            birthday: birthday ? birthday.toISOString().split('T')[0] : null,
+                            gender,
+                            department: department,
+                            program,
+                            program_year_level: programYearLevel ? parseInt(programYearLevel) : null,
+                        });
+                    if (insertError) {
+                        Alert.alert('Insert Error', insertError.message);
+                    } else {
+                        Alert.alert('Verification Email Sent', 'Please check your email for the confirmation link.');
+                        setActiveTab('signin');
+                    }
+                } else {
+                    Alert.alert('Error', 'User id missing after sign-up.');
+                }
             }
         } catch (err) {
             Alert.alert('Error', 'An error occurred during sign up');
@@ -181,6 +248,23 @@ export default function Auth() {
         setLoading(false);
     }
 
+    // Function to navigate between signup steps
+    const navigateStep = (direction: any) => {
+        const nextStep = currentSignupStep + direction;
+        if (nextStep > 0 && nextStep <= 2) {
+            setCurrentSignupStep(nextStep);
+        }
+    }
+
+    // Format date as YYYY-MM-DD for display
+    const formatDate = (date: any) => {
+        if (!date) return '';
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${year}-${month}-${day}`;
+    };
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <KeyboardAvoidingView 
@@ -217,7 +301,10 @@ export default function Auth() {
                                     styles.tabButton, 
                                     activeTab === 'signup' && styles.activeTabButton
                                 ]}
-                                onPress={() => setActiveTab('signup')}
+                                onPress={() => {
+                                    setActiveTab('signup');
+                                    setCurrentSignupStep(1);
+                                }}
                             >
                                 <Text style={[
                                     styles.tabText, 
@@ -228,41 +315,244 @@ export default function Auth() {
                         
                         {/* Form Content */}
                         <View style={styles.formContainer}>
-                            <View style={styles.inputContainer}>
-                                <Input
-                                    label="Email"
-                                    leftIcon={{ type: 'font-awesome', name: 'envelope', color: '#34d399' }}
-                                    onChangeText={(text) => setEmail(text)}
-                                    value={email}
-                                    placeholder="email@address.com"
-                                    autoCapitalize={'none'}
-                                    keyboardType="email-address"
-                                    containerStyle={styles.input}
-                                    labelStyle={styles.inputLabel}
-                                />
-                            </View>
-                            
-                            {/* Only show password field for password signin or signup */}
-                            {(activeTab === 'signin' || activeTab === 'signup') && (
-                                <View style={styles.inputContainer}>
-                                    <Input
-                                        label="Password"
-                                        leftIcon={{ type: 'font-awesome', name: 'lock', color: '#34d399' }}
-                                        rightIcon={{ 
-                                            type: 'font-awesome', 
-                                            name: showPassword ? 'eye-slash' : 'eye', 
-                                            color: '#888',
-                                            onPress: () => setShowPassword(!showPassword)
-                                        }}
-                                        onChangeText={(text) => setPassword(text)}
-                                        value={password}
-                                        secureTextEntry={!showPassword}
-                                        placeholder="Password"
-                                        autoCapitalize={'none'}
-                                        containerStyle={styles.input}
-                                        labelStyle={styles.inputLabel}
-                                    />
-                                </View>
+                            {/* Common fields for both sign in and sign up */}
+                            {(activeTab === 'signin' || (activeTab === 'signup' && currentSignupStep === 1)) && (
+                                <>
+                                    <View style={styles.inputContainer}>
+                                        <Input
+                                            label="Email"
+                                            leftIcon={{ type: 'font-awesome', name: 'envelope', color: '#34d399' }}
+                                            onChangeText={(text) => setEmail(text)}
+                                            value={email}
+                                            placeholder="email@address.com"
+                                            autoCapitalize={'none'}
+                                            keyboardType="email-address"
+                                            containerStyle={styles.input}
+                                            labelStyle={styles.inputLabel}
+                                        />
+                                    </View>
+                                    
+                                    <View style={styles.inputContainer}>
+                                        <Input
+                                            label="Password"
+                                            leftIcon={{ type: 'font-awesome', name: 'lock', color: '#34d399' }}
+                                            rightIcon={{ 
+                                                type: 'font-awesome', 
+                                                name: showPassword ? 'eye-slash' : 'eye', 
+                                                color: '#888',
+                                                onPress: () => setShowPassword(!showPassword)
+                                            }}
+                                            onChangeText={(text) => setPassword(text)}
+                                            value={password}
+                                            secureTextEntry={!showPassword}
+                                            placeholder="Password"
+                                            autoCapitalize={'none'}
+                                            containerStyle={styles.input}
+                                            labelStyle={styles.inputLabel}
+                                        />
+                                    </View>
+                                    {/* Added Confirm Password Field for Signup */}
+                                    {activeTab === 'signup' && (
+                                        <View style={styles.inputContainer}>
+                                            <Input
+                                                label="Confirm Password"
+                                                leftIcon={{ type: 'font-awesome', name: 'lock', color: '#34d399' }}
+                                                rightIcon={{ 
+                                                    type: 'font-awesome', 
+                                                    name: showPassword ? 'eye-slash' : 'eye', 
+                                                    color: '#888',
+                                                    onPress: () => setShowPassword(!showPassword)
+                                                }}
+                                                onChangeText={(text) => setConfirmPassword(text)}
+                                                value={confirmPassword}
+                                                secureTextEntry={!showPassword}
+                                                placeholder="Confirm Password"
+                                                autoCapitalize={'none'}
+                                                containerStyle={styles.input}
+                                                labelStyle={styles.inputLabel}
+                                            />
+                                        </View>
+                                    )}
+                                </>
+                            )}
+
+                            {/* Sign Up Step 1 Fields */}
+                            {activeTab === 'signup' && currentSignupStep === 1 && (
+                                <>
+                                    <View style={styles.inputContainer}>
+                                        <Input
+                                            label="Full Name"
+                                            leftIcon={{ type: 'font-awesome', name: 'user', color: '#34d399' }}
+                                            onChangeText={(text) => setName(text)}
+                                            value={name}
+                                            placeholder="John Doe"
+                                            containerStyle={styles.input}
+                                            labelStyle={styles.inputLabel}
+                                        />
+                                    </View>
+                                    <View style={styles.inputContainer}>
+                                        <Input
+                                            label="Username"
+                                            leftIcon={{ type: 'font-awesome', name: 'at', color: '#34d399' }}
+                                            onChangeText={(text) => setUsername(text)}
+                                            value={username}
+                                            placeholder="johndoe"
+                                            containerStyle={styles.input}
+                                            labelStyle={styles.inputLabel}
+                                        />
+                                    </View>
+
+                                    {/* Row for birthday picker */}
+                                    <View style={styles.inputContainer}>
+                                        <Text style={styles.inputLabel}>Birthday</Text>
+                                        <TouchableOpacity 
+                                            style={styles.datePickerButton}
+                                            onPress={() => setShowDatePicker(true)}
+                                        >
+                                            <Icon type="font-awesome" name="calendar" color="#34d399" size={16} />
+                                            <Text style={styles.dateText}>{formatDate(birthday)}</Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    {showDatePicker && (
+                                        <DateTimePicker
+                                            value={birthday}
+                                            mode="date"
+                                            display="default"
+                                            onChange={onDateChange}
+                                            maximumDate={new Date()}
+                                        />
+                                    )}
+
+                                    <View style={styles.buttonContainer}>
+                                        <Button 
+                                            title="Next" 
+                                            onPress={() => navigateStep(1)} 
+                                            buttonStyle={styles.primaryButton}
+                                            titleStyle={styles.buttonText}
+                                            icon={{ 
+                                                name: 'arrow-right', 
+                                                type: 'font-awesome', 
+                                                color: 'white', 
+                                                size: 16, 
+                                                style: { marginLeft: 10 } 
+                                            }}
+                                            iconRight
+                                        />
+                                    </View>
+                                </>
+                            )}
+
+                            {/* Sign Up Step 2 Fields */}
+                            {activeTab === 'signup' && currentSignupStep === 2 && (
+                                <>
+                                    <View style={styles.inputRow}>
+                                        <Text style={styles.stepIndicator}>Step 2 of 2</Text>
+                                    </View>
+
+                                    <View style={styles.inputContainer}>
+                                        <Input
+                                            label="Contact Number"
+                                            leftIcon={{ type: 'font-awesome', name: 'phone', color: '#34d399' }}
+                                            onChangeText={(text) => setContactNumber(text)}
+                                            value={contactNumber}
+                                            placeholder="09123456789"
+                                            keyboardType="phone-pad"
+                                            containerStyle={styles.input}
+                                            labelStyle={styles.inputLabel}
+                                        />
+                                    </View>
+
+                                    <View style={styles.inputContainer}>
+                                        <Input
+                                            label="Address"
+                                            leftIcon={{ type: 'font-awesome', name: 'map-marker', color: '#34d399' }}
+                                            onChangeText={(text) => setAddress(text)}
+                                            value={address}
+                                            placeholder="123 Main St"
+                                            containerStyle={styles.input}
+                                            labelStyle={styles.inputLabel}
+                                        />
+                                    </View>
+                                    
+                                    {/* New Gender Input */}
+                                    <View style={styles.inputContainer}>
+                                        <Text style={styles.inputLabel}>Gender</Text>
+                                        <TouchableOpacity 
+                                            style={styles.dropdown}
+                                            onPress={() => setGenderModalVisible(true)}
+                                        >
+                                            <Text style={styles.dropdownValue}>{gender || 'Select Gender'}</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    
+                                    {/* School Information Container */}
+                                    <View style={styles.schoolInfoContainer}>
+                                        <Text style={styles.sectionTitle}>School Information</Text>
+                                        
+                                        <View style={styles.dropdownRow}>
+                                            <TouchableOpacity 
+                                                onPress={() => setDeptModalVisible(true)} 
+                                                style={styles.dropdown}
+                                            >
+                                                <Text style={styles.dropdownLabel}>Department</Text>
+                                                <Text style={styles.dropdownValue}>{department || 'Select'}</Text>
+                                            </TouchableOpacity>
+
+                                            <TouchableOpacity 
+                                                onPress={() => setYearModalVisible(true)} 
+                                                style={styles.dropdown}
+                                            >
+                                                <Text style={styles.dropdownLabel}>Year Level</Text>
+                                                <Text style={styles.dropdownValue}>{programYearLevel || 'Select'}</Text>
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        <TouchableOpacity 
+                                            onPress={() => setProgramModalVisible(true)} 
+                                            style={[styles.dropdown, styles.fullWidthDropdown]}
+                                        >
+                                            <Text style={styles.dropdownLabel}>Program</Text>
+                                            <Text style={styles.dropdownValue}>{program || 'Select Program'}</Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={styles.buttonRow}>
+                                        <Button 
+                                            title="Back" 
+                                            onPress={() => navigateStep(-1)} 
+                                            buttonStyle={styles.secondaryButton}
+                                            titleStyle={styles.secondaryButtonText}
+                                            containerStyle={styles.halfButton}
+                                            icon={{ 
+                                                name: 'arrow-left', 
+                                                type: 'font-awesome', 
+                                                color: '#34d399', 
+                                                size: 16, 
+                                                style: { marginRight: 10 } 
+                                            }}
+                                        />
+                                        
+                                        <Button 
+                                            title="Create Account" 
+                                            disabled={loading} 
+                                            onPress={signUpWithEmail} 
+                                            buttonStyle={styles.primaryButton}
+                                            titleStyle={styles.buttonText}
+                                            disabledStyle={styles.disabledButton}
+                                            loading={loading}
+                                            containerStyle={styles.halfButton}
+                                            loadingProps={{ color: 'white' }}
+                                            icon={{ 
+                                                name: 'user-plus', 
+                                                type: 'font-awesome', 
+                                                color: 'white', 
+                                                size: 16, 
+                                                style: { marginRight: 10 } 
+                                            }}
+                                        />
+                                    </View>
+                                </>
                             )}
                             
                             {/* Sign In Section */}
@@ -309,29 +599,6 @@ export default function Auth() {
                                         />
                                     </View>
                                 </>
-                            )}
-                            
-                            {/* Sign Up Section */}
-                            {activeTab === 'signup' && (
-                                <View style={styles.buttonContainer}>
-                                    <Button 
-                                        title="Create Account" 
-                                        disabled={loading} 
-                                        onPress={signUpWithEmail} 
-                                        buttonStyle={styles.primaryButton}
-                                        titleStyle={styles.buttonText}
-                                        disabledStyle={styles.disabledButton}
-                                        loading={loading}
-                                        loadingProps={{ color: 'white' }}
-                                        icon={{ 
-                                            name: 'user-plus', 
-                                            type: 'font-awesome', 
-                                            color: 'white', 
-                                            size: 16, 
-                                            style: { marginRight: 10 } 
-                                        }}
-                                    />
-                                </View>
                             )}
                         </View>
                         
@@ -402,6 +669,90 @@ export default function Auth() {
                     </View>
                 </View>
             </Modal>
+
+            {/* Department Dropdown Modal */}
+            <Modal transparent visible={isDeptModalVisible} animationType="slide" onRequestClose={() => setDeptModalVisible(false)}>
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalView}>
+                  <Text style={styles.modalTitle}>Select Department</Text>
+                  {["COECS", "CAS", "IBED", "COED", "CHS", "COL", "CBA"].map((dept) => (
+                    <TouchableOpacity 
+                      key={dept} 
+                      style={styles.modalOption}
+                      onPress={() => { 
+                        setDepartment(dept); 
+                        setDeptModalVisible(false); 
+                      }}
+                    >
+                      <Text style={styles.modalOptionText}>{dept}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </Modal>
+
+            {/* Program Dropdown Modal */}
+            <Modal transparent visible={isProgramModalVisible} animationType="slide" onRequestClose={() => setProgramModalVisible(false)}>
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalView}>
+                  <Text style={styles.modalTitle}>Select Program</Text>
+                  {["BSIT", "BSN", "BSA", "BSTM", "BSCS", "BSED", "BSCE"].map((prog) => (
+                    <TouchableOpacity 
+                      key={prog} 
+                      style={styles.modalOption}
+                      onPress={() => { 
+                        setProgram(prog); 
+                        setProgramModalVisible(false); 
+                      }}
+                    >
+                      <Text style={styles.modalOptionText}>{prog}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </Modal>
+
+            {/* Program Year Level Dropdown Modal */}
+            <Modal transparent visible={isYearModalVisible} animationType="slide" onRequestClose={() => setYearModalVisible(false)}>
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalView}>
+                  <Text style={styles.modalTitle}>Select Year Level</Text>
+                  {[1,2,3,4].map((year) => (
+                    <TouchableOpacity 
+                      key={year}
+                      style={styles.modalOption} 
+                      onPress={() => { 
+                        setProgramYearLevel(year.toString()); 
+                        setYearModalVisible(false); 
+                      }}
+                    >
+                      <Text style={styles.modalOptionText}>{year}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </Modal>
+
+            {/* New Gender Dropdown Modal */}
+            <Modal transparent visible={isGenderModalVisible} animationType="slide" onRequestClose={() => setGenderModalVisible(false)}>
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalView}>
+                  <Text style={styles.modalTitle}>Select Gender</Text>
+                  {["Male", "Female", "Others"].map((item) => (
+                    <TouchableOpacity 
+                      key={item} 
+                      style={styles.modalOption}
+                      onPress={() => { 
+                        setGender(item); 
+                        setGenderModalVisible(false); 
+                      }}
+                    >
+                      <Text style={styles.modalOptionText}>{item}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </Modal>
         </SafeAreaView>
     )
 }
@@ -424,7 +775,7 @@ const styles = StyleSheet.create({
     },
     brandingContainer: {
         alignItems: 'center',
-        marginBottom: 40,
+        marginBottom: 30,
     },
     gradientText: {
         color: '#000',
@@ -483,7 +834,7 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     inputContainer: {
-        marginBottom: 16,
+        marginBottom: 10, // Reduced from 16
     },
     input: {
         paddingHorizontal: 0,
@@ -491,7 +842,13 @@ const styles = StyleSheet.create({
     inputLabel: {
         color: '#64748b',
         fontWeight: '500',
-        marginBottom: 8,
+        marginBottom: 6, // Reduced from 8
+    },
+    stepIndicator: {
+        color: '#64748b',
+        fontWeight: '500',
+        fontSize: 14,
+        marginBottom: 10,
     },
     buttonContainer: {
         marginTop: 8,
@@ -605,11 +962,92 @@ const styles = StyleSheet.create({
     },
     resendText: {
         color: '#34d399',
+        fontSize: 14,
         fontWeight: '500',
     },
     timerText: {
         marginTop: 16,
         color: '#64748b',
+        fontSize: 14,
+    },
+    datePickerButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        borderRadius: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        marginBottom: 10,
+    },
+    dateText: {
+        marginLeft: 10,
+        color: '#64748b',
+        fontSize: 16,
+    },
+    buttonRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 16,
+    },
+    halfButton: {
+        width: '48%',
+    },
+    schoolInfoContainer: {
+        marginVertical: 10,
+        padding: 12,
+        backgroundColor: '#f8fafc',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#334155',
+        marginBottom: 12,
+    },
+    dropdownRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+    },
+    dropdown: {
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        borderRadius: 8,
+        padding: 12,
+        width: '48%',
+    },
+    fullWidthDropdown: {
+        width: '100%',
+    },
+    dropdownLabel: {
+        fontSize: 12,
+        color: '#64748b',
+        marginBottom: 4,
+    },
+    dropdownValue: {
+        fontSize: 14,
+        color: '#334155',
         fontWeight: '500',
+    },
+    modalOption: {
+        width: '100%',
+        padding: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e2e8f0',
+    },
+    modalOptionText: {
+        fontSize: 16,
+        color: '#334155',
+        textAlign: 'center',
+    },
+    inputRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
     },
 });
