@@ -11,6 +11,11 @@ import { supabase } from "../../lib/supabase";
 import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
+import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
+import LinearGradient from 'expo-linear-gradient';
+
+// Create shimmer component with a workaround for Expo's LinearGradient
+const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient as any);
 
 type Message = {
   sender_id: string;
@@ -177,10 +182,41 @@ export default function MessageList() {
     </TouchableOpacity>
   );
 
+  // Render shimmer placeholders for loading state
+  const renderShimmerItem = (index: number) => (
+    <View key={index} style={styles.itemContainer}>
+      <ShimmerPlaceholder
+        style={styles.avatar}
+        shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        visible={!loading}
+      />
+      <View style={styles.messageContainer}>
+        <ShimmerPlaceholder
+          style={{ width: '60%', height: 18, borderRadius: 4, marginBottom: 8 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          visible={!loading}
+        />
+        <ShimmerPlaceholder
+          style={{ width: '80%', height: 16, borderRadius: 4 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          visible={!loading}
+        />
+      </View>
+      <ShimmerPlaceholder
+        style={styles.badgeContainer}
+        shimmerColors={['#a7f3d0', '#6ee7b7', '#a7f3d0']}
+        visible={!loading}
+      />
+    </View>
+  );
+
   if (loading) {
     return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#6ee7b7" />
+      <View style={styles.container}>
+        <Text style={styles.title}>Messages</Text>
+        <View>
+          {Array(6).fill(0).map((_, index) => renderShimmerItem(index))}
+        </View>
       </View>
     );
   }

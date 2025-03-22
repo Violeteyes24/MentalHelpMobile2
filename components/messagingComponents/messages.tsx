@@ -6,11 +6,17 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 import { ScrollView as HScrollView } from 'react-native';
+import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
+import LinearGradient from 'expo-linear-gradient';
+
+// Create shimmer component with a workaround for Expo's LinearGradient
+const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient as any);
 
 interface Message {
   message_id: string;
@@ -35,6 +41,7 @@ export default function Messages() {
   const { session } = useAuth();
   const [userName, setUserName] = useState<string | null>(null);
   const [recipientId, setRecipientId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true); // Add loading state
   // Create ref for FlatList to handle scrolling
   const flatListRef = useRef<FlatList>(null);
 
@@ -42,6 +49,7 @@ export default function Messages() {
   console.log("Conversation ID: ", id);
 
   useEffect(() => {
+    setIsLoading(true); // Set loading to true when fetching starts
     fetchMessages(); // This will call fetchConversationDetails which will call fetchAllMessagesWithRecipient
     fetchPredefinedOptions();
     
@@ -227,6 +235,7 @@ export default function Messages() {
       
       console.log("All formatted messages:", formattedMessages);
       setMessages(formattedMessages);
+      setIsLoading(false); // Set loading to false when data is fetched
       
       // If we already have userName from fetchConversationDetails, don't override it
       if (!userName && formattedMessages.length > 0) {
@@ -240,6 +249,7 @@ export default function Messages() {
       }
     } catch (error) {
       console.error("Error in fetchAllMessagesWithRecipient:", error);
+      setIsLoading(false); // Make sure loading is set to false even on error
     }
   }
 
@@ -369,46 +379,134 @@ export default function Messages() {
     </View>
   );
 
+  // Render shimmer placeholders for loading state
+  const renderShimmerHeader = () => (
+    <ShimmerPlaceholder
+      style={{ width: 180, height: 24, borderRadius: 4, alignSelf: 'center', marginBottom: 20 }}
+      shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+      visible={!isLoading}
+    />
+  );
+
+  const renderUserMessageShimmer = (index: number) => (
+    <View key={`user-${index}`} style={styles.messageWrapper}>
+      <View style={[styles.userMessageContainer, {backgroundColor: 'transparent'}]}>
+        <ShimmerPlaceholder
+          style={{ 
+            width: '100%', 
+            height: 60, 
+            borderRadius: 20,
+            borderBottomRightRadius: 5
+          }}
+          shimmerColors={['#a7f3d0', '#6ee7b7', '#a7f3d0']}
+          visible={!isLoading}
+        />
+      </View>
+    </View>
+  );
+
+  const renderBotMessageShimmer = (index: number) => (
+    <View key={`bot-${index}`} style={styles.messageWrapper}>
+      <View style={[styles.botMessageContainer, {backgroundColor: 'transparent', borderWidth: 0}]}>
+        <ShimmerPlaceholder
+          style={{ 
+            width: '100%', 
+            height: 70, 
+            borderRadius: 20,
+            borderBottomLeftRadius: 5
+          }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          visible={!isLoading}
+        />
+      </View>
+    </View>
+  );
+
+  const renderShimmerOptions = () => (
+    <View style={styles.carouselContainer}>
+      <HScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.carousel}
+      >
+        {Array(4).fill(0).map((_, index) => (
+          <ShimmerPlaceholder
+            key={index}
+            style={{ 
+              width: 150, 
+              height: 60, 
+              borderRadius: 25,
+              marginHorizontal: 5
+            }}
+            shimmerColors={['#a7f3d0', '#6ee7b7', '#a7f3d0']}
+            visible={!isLoading}
+          />
+        ))}
+      </HScrollView>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{userName || 'Conversation'}</Text>
-      
-      {/* Debug information */}
-      <Text style={styles.debugText}>
-        Current Conversation: {id} | Total Messages: {messages.length}
-      </Text>
-      
-      <FlatList
-        ref={flatListRef}
-        style={styles.chatLog}
-        contentContainerStyle={styles.chatLogContent}
-        data={messages}
-        renderItem={renderMessage}
-        keyExtractor={(item) => item.message_id}
-        ListEmptyComponent={renderEmptyComponent}
-        onContentSizeChange={scrollToBottom} // Scroll to bottom when content size changes
-        onLayout={scrollToBottom} // Scroll to bottom on initial layout
-      />
+      {isLoading ? (
+        // Show shimmer placeholders while loading
+        <>
+          {renderShimmerHeader()}
+          <View style={styles.chatLog}>
+            <View style={styles.chatLogContent}>
+              {/* Create alternating user and bot message shimmers */}
+              {Array(4).fill(0).map((_, index) => (
+                <React.Fragment key={index}>
+                  {renderUserMessageShimmer(index)}
+                  {renderBotMessageShimmer(index)}
+                </React.Fragment>
+              ))}
+            </View>
+          </View>
+          {renderShimmerOptions()}
+        </>
+      ) : (
+        <>
+          <Text style={styles.title}>{userName || 'Conversation'}</Text>
+          
+          {/* Debug information */}
+          <Text style={styles.debugText}>
+            Current Conversation: {id} | Total Messages: {messages.length}
+          </Text>
+          
+          <FlatList
+            ref={flatListRef}
+            style={styles.chatLog}
+            contentContainerStyle={styles.chatLogContent}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => item.message_id}
+            ListEmptyComponent={renderEmptyComponent}
+            onContentSizeChange={scrollToBottom} // Scroll to bottom when content size changes
+            onLayout={scrollToBottom} // Scroll to bottom on initial layout
+          />
 
-      {/* Predefined Messages Carousel */}
-      <View style={styles.carouselContainer}>
-        <HScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.carousel}
-        >
-          {predefinedOptions.map((option, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.optionButton}
-              onPress={() => sendMessage(option)}
-              activeOpacity={0.7}
+          {/* Predefined Messages Carousel */}
+          <View style={styles.carouselContainer}>
+            <HScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.carousel}
             >
-              <Text style={styles.optionText}>{option.message_content}</Text>
-            </TouchableOpacity>
-          ))}
-        </HScrollView>
-      </View>
+              {predefinedOptions.map((option, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.optionButton}
+                  onPress={() => sendMessage(option)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.optionText}>{option.message_content}</Text>
+                </TouchableOpacity>
+              ))}
+            </HScrollView>
+          </View>
+        </>
+      )}
     </View>
   );
 }
