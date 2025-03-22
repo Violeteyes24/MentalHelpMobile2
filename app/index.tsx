@@ -2,13 +2,17 @@ import { LogBox } from "react-native";
 LogBox.ignoreAllLogs(); // Disable all log notifications
 
 // app/(tabs)/Auth.tsx
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Alert, StyleSheet, View, AppState, Text, Modal, TouchableOpacity, ImageBackground, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView } from 'react-native'
 import { supabase } from '../lib/supabase'
 import { Button, Input, Icon } from '@rneui/themed'
 import { useRouter } from 'expo-router'
-import { LinearGradient } from 'expo-linear-gradient'
+import LinearGradient from 'expo-linear-gradient'
 import DateTimePicker from '@react-native-community/datetimepicker'
+import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder'
+
+// Create shimmer component with a workaround for Expo's LinearGradient
+const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient as any);
 
 // Tells Supabase Auth to continuously refresh the session automatically if
 // the app is in the foreground. When this is added, you will continue to receive
@@ -34,6 +38,7 @@ export default function Auth() {
     const [activeTab, setActiveTab] = useState('signin') // 'signin' or 'signup'
     const [timer, setTimer] = useState(0)
     const router = useRouter();
+    const [initialLoading, setInitialLoading] = useState(true)
 
     // New state variables for additional sign up fields
     const [name, setName] = useState('')
@@ -51,6 +56,21 @@ export default function Auth() {
     const [currentSignupStep, setCurrentSignupStep] = useState(1) // For multi-step form
     const [gender, setGender] = useState('')
     const [isGenderModalVisible, setGenderModalVisible] = useState(false)
+
+    useEffect(() => {
+        // Check if user is already authenticated
+        const checkAuth = async () => {
+            setInitialLoading(true);
+            const { data } = await supabase.auth.getSession();
+            if (data.session) {
+                // User is authenticated, redirect to tabs
+                router.push('/(tabs)');
+            }
+            setInitialLoading(false);
+        };
+        
+        checkAuth();
+    }, []);
 
     const openModal = () => {
         setOtpModalVisible(true);
@@ -307,6 +327,58 @@ export default function Auth() {
         return `${year}-${month}-${day}`;
     };
 
+    // Render shimmer component for the form loading state
+    const renderLoadingShimmer = () => (
+        <View style={styles.container}>
+            <View style={styles.brandingContainer}>
+                <ShimmerPlaceholder
+                    style={{ width: 200, height: 60, borderRadius: 8, marginBottom: 8 }}
+                    shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+                />
+                <ShimmerPlaceholder
+                    style={{ width: 250, height: 24, borderRadius: 4 }}
+                    shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+                />
+            </View>
+            
+            <ShimmerPlaceholder
+                style={{ width: '100%', height: 50, borderRadius: 8, marginVertical: 24 }}
+                shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+            />
+            
+            <View style={styles.formContainer}>
+                <ShimmerPlaceholder
+                    style={{ width: '100%', height: 70, borderRadius: 8, marginBottom: 16 }}
+                    shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+                />
+                <ShimmerPlaceholder
+                    style={{ width: '100%', height: 70, borderRadius: 8, marginBottom: 16 }}
+                    shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+                />
+                <ShimmerPlaceholder
+                    style={{ width: '100%', height: 50, borderRadius: 8, marginTop: 16 }}
+                    shimmerColors={['#4eebc0', '#34d399', '#4eebc0']}
+                />
+            </View>
+        </View>
+    );
+
+    // Add new function to render shimmer buttons
+    const renderButtonShimmer = () => (
+        <ShimmerPlaceholder
+            style={{ height: 50, borderRadius: 8, marginBottom: 16 }}
+            shimmerColors={['#4eebc0', '#34d399', '#4eebc0']}
+        />
+    );
+
+    if (initialLoading) {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                {renderLoadingShimmer()}
+            </SafeAreaView>
+        );
+    }
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <KeyboardAvoidingView 
@@ -447,13 +519,20 @@ export default function Auth() {
                                     {/* Row for birthday picker */}
                                     <View style={styles.inputContainer}>
                                         <Text style={styles.inputLabel}>Birthday</Text>
-                                        <TouchableOpacity 
-                                            style={styles.datePickerButton}
-                                            onPress={() => setShowDatePicker(true)}
-                                        >
-                                            <Icon type="font-awesome" name="calendar" color="#34d399" size={16} />
-                                            <Text style={styles.dateText}>{formatDate(birthday)}</Text>
-                                        </TouchableOpacity>
+                                        {loading ? (
+                                            <ShimmerPlaceholder
+                                                style={{ height: 50, borderRadius: 8 }}
+                                                shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+                                            />
+                                        ) : (
+                                            <TouchableOpacity 
+                                                style={styles.datePickerButton}
+                                                onPress={() => setShowDatePicker(true)}
+                                            >
+                                                <Icon type="font-awesome" name="calendar" color="#34d399" size={16} />
+                                                <Text style={styles.dateText}>{formatDate(birthday)}</Text>
+                                            </TouchableOpacity>
+                                        )}
                                     </View>
 
                                     {showDatePicker && (
@@ -467,20 +546,22 @@ export default function Auth() {
                                     )}
 
                                     <View style={styles.buttonContainer}>
-                                        <Button 
-                                            title="Next" 
-                                            onPress={() => navigateStep(1)} 
-                                            buttonStyle={styles.primaryButton}
-                                            titleStyle={styles.buttonText}
-                                            icon={{ 
-                                                name: 'arrow-right', 
-                                                type: 'font-awesome', 
-                                                color: 'white', 
-                                                size: 16, 
-                                                style: { marginLeft: 10 } 
-                                            }}
-                                            iconRight
-                                        />
+                                        {loading ? renderButtonShimmer() : (
+                                            <Button 
+                                                title="Next" 
+                                                onPress={() => navigateStep(1)} 
+                                                buttonStyle={styles.primaryButton}
+                                                titleStyle={styles.buttonText}
+                                                icon={{ 
+                                                    name: 'arrow-right', 
+                                                    type: 'font-awesome', 
+                                                    color: 'white', 
+                                                    size: 16, 
+                                                    style: { marginLeft: 10 } 
+                                                }}
+                                                iconRight
+                                            />
+                                        )}
                                     </View>
                                 </>
                             )}
@@ -520,12 +601,19 @@ export default function Auth() {
                                     {/* New Gender Input */}
                                     <View style={styles.inputContainer}>
                                         <Text style={styles.inputLabel}>Gender</Text>
-                                        <TouchableOpacity 
-                                            style={styles.dropdown}
-                                            onPress={() => setGenderModalVisible(true)}
-                                        >
-                                            <Text style={styles.dropdownValue}>{gender || 'Select Gender'}</Text>
-                                        </TouchableOpacity>
+                                        {loading ? (
+                                            <ShimmerPlaceholder
+                                                style={{ height: 50, borderRadius: 8 }}
+                                                shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+                                            />
+                                        ) : (
+                                            <TouchableOpacity 
+                                                style={styles.dropdown}
+                                                onPress={() => setGenderModalVisible(true)}
+                                            >
+                                                <Text style={styles.dropdownValue}>{gender || 'Select Gender'}</Text>
+                                            </TouchableOpacity>
+                                        )}
                                     </View>
                                     
                                     {/* School Information Container */}
@@ -533,66 +621,103 @@ export default function Auth() {
                                         <Text style={styles.sectionTitle}>School Information</Text>
                                         
                                         <View style={styles.dropdownRow}>
-                                            <TouchableOpacity 
-                                                onPress={() => setDeptModalVisible(true)} 
-                                                style={styles.dropdown}
-                                            >
-                                                <Text style={styles.dropdownLabel}>Department</Text>
-                                                <Text style={styles.dropdownValue}>{department || 'Select'}</Text>
-                                            </TouchableOpacity>
+                                            {loading ? (
+                                                <>
+                                                    <ShimmerPlaceholder
+                                                        style={[{ height: 50, borderRadius: 8 }, styles.dropdown]}
+                                                        shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+                                                    />
+                                                    <ShimmerPlaceholder
+                                                        style={[{ height: 50, borderRadius: 8 }, styles.dropdown]}
+                                                        shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+                                                    />
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <TouchableOpacity 
+                                                        onPress={() => setDeptModalVisible(true)} 
+                                                        style={styles.dropdown}
+                                                    >
+                                                        <Text style={styles.dropdownLabel}>Department</Text>
+                                                        <Text style={styles.dropdownValue}>{department || 'Select'}</Text>
+                                                    </TouchableOpacity>
 
-                                            <TouchableOpacity 
-                                                onPress={() => setYearModalVisible(true)} 
-                                                style={styles.dropdown}
-                                            >
-                                                <Text style={styles.dropdownLabel}>Year Level</Text>
-                                                <Text style={styles.dropdownValue}>{programYearLevel || 'Select'}</Text>
-                                            </TouchableOpacity>
+                                                    <TouchableOpacity 
+                                                        onPress={() => setYearModalVisible(true)} 
+                                                        style={styles.dropdown}
+                                                    >
+                                                        <Text style={styles.dropdownLabel}>Year Level</Text>
+                                                        <Text style={styles.dropdownValue}>{programYearLevel || 'Select'}</Text>
+                                                    </TouchableOpacity>
+                                                </>
+                                            )}
                                         </View>
 
-                                        <TouchableOpacity 
-                                            onPress={() => setProgramModalVisible(true)} 
-                                            style={[styles.dropdown, styles.fullWidthDropdown]}
-                                        >
-                                            <Text style={styles.dropdownLabel}>Program</Text>
-                                            <Text style={styles.dropdownValue}>{program || 'Select Program'}</Text>
-                                        </TouchableOpacity>
+                                        {loading ? (
+                                            <ShimmerPlaceholder
+                                                style={[{ height: 50, borderRadius: 8 }, styles.fullWidthDropdown]}
+                                                shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+                                            />
+                                        ) : (
+                                            <TouchableOpacity 
+                                                onPress={() => setProgramModalVisible(true)} 
+                                                style={[styles.dropdown, styles.fullWidthDropdown]}
+                                            >
+                                                <Text style={styles.dropdownLabel}>Program</Text>
+                                                <Text style={styles.dropdownValue}>{program || 'Select Program'}</Text>
+                                            </TouchableOpacity>
+                                        )}
                                     </View>
 
                                     <View style={styles.buttonRow}>
-                                        <Button 
-                                            title="Back" 
-                                            onPress={() => navigateStep(-1)} 
-                                            buttonStyle={styles.secondaryButton}
-                                            titleStyle={styles.secondaryButtonText}
-                                            containerStyle={styles.halfButton}
-                                            icon={{ 
-                                                name: 'arrow-left', 
-                                                type: 'font-awesome', 
-                                                color: '#34d399', 
-                                                size: 16, 
-                                                style: { marginRight: 10 } 
-                                            }}
-                                        />
-                                        
-                                        <Button 
-                                            title="Create Account" 
-                                            disabled={loading} 
-                                            onPress={signUpWithEmail} 
-                                            buttonStyle={styles.primaryButton}
-                                            titleStyle={styles.buttonText}
-                                            disabledStyle={styles.disabledButton}
-                                            loading={loading}
-                                            containerStyle={styles.halfButton}
-                                            loadingProps={{ color: 'white' }}
-                                            icon={{ 
-                                                name: 'user-plus', 
-                                                type: 'font-awesome', 
-                                                color: 'white', 
-                                                size: 16, 
-                                                style: { marginRight: 10 } 
-                                            }}
-                                        />
+                                        {loading ? (
+                                            <>
+                                                <ShimmerPlaceholder
+                                                    style={[{ height: 50, borderRadius: 8 }, styles.halfButton]}
+                                                    shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+                                                />
+                                                <ShimmerPlaceholder
+                                                    style={[{ height: 50, borderRadius: 8 }, styles.halfButton]}
+                                                    shimmerColors={['#4eebc0', '#34d399', '#4eebc0']}
+                                                />
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Button 
+                                                    title="Back" 
+                                                    onPress={() => navigateStep(-1)} 
+                                                    buttonStyle={styles.secondaryButton}
+                                                    titleStyle={styles.secondaryButtonText}
+                                                    containerStyle={styles.halfButton}
+                                                    icon={{ 
+                                                        name: 'arrow-left', 
+                                                        type: 'font-awesome', 
+                                                        color: '#34d399', 
+                                                        size: 16, 
+                                                        style: { marginRight: 10 } 
+                                                    }}
+                                                />
+                                                
+                                                <Button 
+                                                    title="Create Account" 
+                                                    disabled={loading} 
+                                                    onPress={signUpWithEmail} 
+                                                    buttonStyle={styles.primaryButton}
+                                                    titleStyle={styles.buttonText}
+                                                    disabledStyle={styles.disabledButton}
+                                                    loading={loading}
+                                                    containerStyle={styles.halfButton}
+                                                    loadingProps={{ color: 'white' }}
+                                                    icon={{ 
+                                                        name: 'user-plus', 
+                                                        type: 'font-awesome', 
+                                                        color: 'white', 
+                                                        size: 16, 
+                                                        style: { marginRight: 10 } 
+                                                    }}
+                                                />
+                                            </>
+                                        )}
                                     </View>
                                 </>
                             )}
@@ -601,44 +726,48 @@ export default function Auth() {
                             {activeTab === 'signin' && (
                                 <>
                                     <View style={styles.buttonContainer}>
-                                        <Button 
-                                            title="Sign in with Password" 
-                                            disabled={loading} 
-                                            onPress={signInWithEmail} 
-                                            buttonStyle={styles.primaryButton}
-                                            titleStyle={styles.buttonText}
-                                            disabledStyle={styles.disabledButton}
-                                            loading={loading}
-                                            loadingProps={{ color: 'white' }}
-                                            icon={{ 
-                                                name: 'sign-in', 
-                                                type: 'font-awesome', 
-                                                color: 'white', 
-                                                size: 16, 
-                                                style: { marginRight: 10 } 
-                                            }}
-                                        />
+                                        {loading ? renderButtonShimmer() : (
+                                            <Button 
+                                                title="Sign in with Password" 
+                                                disabled={loading} 
+                                                onPress={signInWithEmail} 
+                                                buttonStyle={styles.primaryButton}
+                                                titleStyle={styles.buttonText}
+                                                disabledStyle={styles.disabledButton}
+                                                loading={loading}
+                                                loadingProps={{ color: 'white' }}
+                                                icon={{ 
+                                                    name: 'sign-in', 
+                                                    type: 'font-awesome', 
+                                                    color: 'white', 
+                                                    size: 16, 
+                                                    style: { marginRight: 10 } 
+                                                }}
+                                            />
+                                        )}
                                     </View>
                                     
                                     <Text style={styles.orText}>OR</Text>
                                     
                                     <View style={styles.buttonContainer}>
-                                        <Button 
-                                            title="Sign in with OTP Code" 
-                                            disabled={loading} 
-                                            onPress={requestOtp} 
-                                            buttonStyle={styles.secondaryButton}
-                                            titleStyle={styles.secondaryButtonText}
-                                            disabledStyle={styles.disabledButton}
-                                            loading={loading}
-                                            icon={{ 
-                                                name: 'key', 
-                                                type: 'font-awesome', 
-                                                color: '#34d399', 
-                                                size: 16, 
-                                                style: { marginRight: 10 } 
-                                            }}
-                                        />
+                                        {loading ? renderButtonShimmer() : (
+                                            <Button 
+                                                title="Sign in with OTP Code" 
+                                                disabled={loading} 
+                                                onPress={requestOtp} 
+                                                buttonStyle={styles.secondaryButton}
+                                                titleStyle={styles.secondaryButtonText}
+                                                disabledStyle={styles.disabledButton}
+                                                loading={loading}
+                                                icon={{ 
+                                                    name: 'key', 
+                                                    type: 'font-awesome', 
+                                                    color: '#34d399', 
+                                                    size: 16, 
+                                                    style: { marginRight: 10 } 
+                                                }}
+                                            />
+                                        )}
                                     </View>
                                 </>
                             )}
@@ -678,34 +807,50 @@ export default function Auth() {
                             containerStyle={styles.otpInput}
                             inputStyle={styles.otpInputText}
                             textAlign="center"
+                            disabled={loading}
                         />
                         
                         <View style={styles.modalButtonContainer}>
-                            <Button 
-                                title="Verify" 
-                                disabled={loading || otp.length !== 6} 
-                                onPress={verifyOtp} 
-                                buttonStyle={styles.primaryButton}
-                                titleStyle={styles.buttonText}
-                                disabledStyle={styles.disabledButton}
-                                loading={loading}
-                                containerStyle={styles.modalButton}
-                            />
-                            
-                            <Button 
-                                title="Cancel" 
-                                onPress={closeModal} 
-                                buttonStyle={styles.cancelButton}
-                                titleStyle={styles.cancelButtonText}
-                                containerStyle={styles.modalButton}
-                            />
+                            {loading ? (
+                                <>
+                                    <ShimmerPlaceholder
+                                        style={[{ height: 50, borderRadius: 8 }, styles.modalButton]}
+                                        shimmerColors={['#4eebc0', '#34d399', '#4eebc0']}
+                                    />
+                                    <ShimmerPlaceholder
+                                        style={[{ height: 50, borderRadius: 8 }, styles.modalButton]}
+                                        shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    <Button 
+                                        title="Verify" 
+                                        disabled={loading || otp.length !== 6} 
+                                        onPress={verifyOtp} 
+                                        buttonStyle={styles.primaryButton}
+                                        titleStyle={styles.buttonText}
+                                        disabledStyle={styles.disabledButton}
+                                        loading={loading}
+                                        containerStyle={styles.modalButton}
+                                    />
+                                    
+                                    <Button 
+                                        title="Cancel" 
+                                        onPress={closeModal} 
+                                        buttonStyle={styles.cancelButton}
+                                        titleStyle={styles.cancelButtonText}
+                                        containerStyle={styles.modalButton}
+                                    />
+                                </>
+                            )}
                         </View>
                         
                         {timer > 0 ? (
                             <Text style={styles.timerText}>Code expires in {timer}s</Text>
                         ) : (
-                            <TouchableOpacity style={styles.resendContainer} onPress={requestOtp}>
-                                <Text style={styles.resendText}>Didn't receive a code? Resend</Text>
+                            <TouchableOpacity style={styles.resendContainer} onPress={requestOtp} disabled={loading}>
+                                <Text style={[styles.resendText, loading && { opacity: 0.5 }]}>Didn't receive a code? Resend</Text>
                             </TouchableOpacity>
                         )}
                     </View>

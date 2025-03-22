@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -6,18 +6,25 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
-  Alert
+  Alert,
+  ActivityIndicator
 } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { createClient } from "@supabase/supabase-js";
 import { Icon } from "@rneui/themed";
 import { useAuth } from "../../context/AuthContext";
 import ReasonModal from './ReasonModal';
+import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
+import LinearGradient from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const supabase = createClient(
   "https://ybpoanqhkokhdqucwchy.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlicG9hbnFoa29raGRxdWN3Y2h5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ0MDg2MTUsImV4cCI6MjA0OTk4NDYxNX0.pxmpPITVIItZ_pcChUmmx06C8CkMfg5E80ukMGfPZkU"
 );
+
+// Create shimmer component with a workaround for Expo's LinearGradient
+const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient as any);
 
 export default function AvailabilityCalendar({
   counselorId,
@@ -30,12 +37,18 @@ export default function AvailabilityCalendar({
   const { session } = useAuth();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [slotsLoading, setSlotsLoading] = useState<boolean>(false);
+  const [timeSlots, setTimeSlots] = useState<any[]>([]);
+  const [markedDates, setMarkedDates] = useState<any>({});
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
 
   useEffect(() => {
     if (selectedDate) {
       fetchAvailability();
     }
     fetchCounselorDetails();
+    fetchAvailableDates();
 
     const appointmentChannel = supabase
       .channel("custom-appointments-channel")
@@ -258,6 +271,219 @@ export default function AvailabilityCalendar({
     </View>
   );
 
+  const fetchAvailableDates = async () => {
+    setLoading(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from('availability_schedules')
+        .select('date, is_available')
+        .eq('counselor_id', counselorId)
+        .eq('is_available', true)
+        .gte('date', new Date().toISOString().split('T')[0])
+        .order('date', { ascending: true });
+        
+      if (error) {
+        console.error('Error fetching available dates:', error);
+        Alert.alert('Error', 'Failed to load available dates');
+        return;
+      }
+      
+      const dates = data?.map(item => item.date) || [];
+      setAvailableDates(dates);
+      
+      const marked: any = {};
+      dates.forEach(date => {
+        marked[date] = { 
+          selected: date === selectedDate,
+          marked: true, 
+          dotColor: '#4CAF50',
+          selectedColor: selectedDate === date ? '#007bff' : undefined
+        };
+      });
+      
+      if (selectedDate && marked[selectedDate]) {
+        marked[selectedDate] = {
+          ...marked[selectedDate],
+          selected: true,
+          selectedColor: '#007bff'
+        };
+      }
+      
+      setMarkedDates(marked);
+    } catch (err) {
+      console.error('Unexpected error fetching dates:', err);
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTimeSlots = async (date: string) => {
+    setSlotsLoading(true);
+    
+    try {
+      const { data: availabilityData, error: availabilityError } = await supabase
+        .from('availability_schedules')
+        .select('availability_schedule_id, start_time, end_time, is_available')
+        .eq('counselor_id', counselorId)
+        .eq('date', date)
+        .order('start_time', { ascending: true });
+        
+      if (availabilityError) {
+        console.error('Error fetching availability:', availabilityError);
+        Alert.alert('Error', 'Failed to load available time slots');
+        return;
+      }
+      
+      if (!availabilityData || availabilityData.length === 0) {
+        setTimeSlots([]);
+        setSlotsLoading(false);
+        return;
+      }
+      
+      const slots: any[] = [];
+      
+      for (const schedule of availabilityData) {
+        if (schedule.is_available) {
+          const startTime = convertTo12Hour(schedule.start_time);
+          const endTime = convertTo12Hour(schedule.end_time);
+          
+          slots.push({
+            id: schedule.availability_schedule_id,
+            time: `${startTime} - ${endTime}`,
+            isBooked: false,
+            isSelected: false,
+            type: "individual"
+          });
+        }
+      }
+      
+      const { data: appointmentData, error: appointmentError } = await supabase
+        .from('appointments')
+        .select('availability_schedules(availability_schedule_id)')
+        .eq('counselor_id', counselorId)
+        .neq('status', 'cancelled');
+        
+      if (appointmentError) {
+        console.error('Error fetching appointments:', appointmentError);
+      }
+      
+      if (appointmentData && appointmentData.length > 0) {
+        const bookedIds = appointmentData
+          .map(appt => appt.availability_schedules?.availability_schedule_id)
+          .filter(id => id);
+          
+        slots.forEach(slot => {
+          if (bookedIds.includes(slot.id)) {
+            slot.isBooked = true;
+          }
+        });
+      }
+      
+      setTimeSlots(slots);
+    } catch (err) {
+      console.error('Unexpected error fetching time slots:', err);
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setSlotsLoading(false);
+    }
+  };
+
+  const handleDateSelect = (day: any) => {
+    const dateStr = day.dateString;
+    
+    if (availableDates.includes(dateStr)) {
+      setSelectedDate(dateStr);
+      
+      const newMarkedDates = { ...markedDates };
+      
+      Object.keys(newMarkedDates).forEach(date => {
+        if (newMarkedDates[date].selected) {
+          newMarkedDates[date] = {
+            ...newMarkedDates[date],
+            selected: false,
+            selectedColor: undefined
+          };
+        }
+      });
+      
+      newMarkedDates[dateStr] = {
+        ...newMarkedDates[dateStr],
+        selected: true,
+        selectedColor: '#007bff'
+      };
+      
+      setMarkedDates(newMarkedDates);
+      
+      fetchTimeSlots(dateStr);
+    }
+  };
+
+  const handleTimeSelect = (slot: any) => {
+    if (!slot.isBooked && selectedDate) {
+      const updatedSlots = timeSlots.map(s => ({
+        ...s,
+        isSelected: s.id === slot.id
+      }));
+      
+      setTimeSlots(updatedSlots);
+    }
+  };
+
+  const renderTimeSlot = ({ item }: { item: any }) => (
+    <TouchableOpacity
+      style={[
+        styles.timeSlot,
+        item.isBooked && styles.bookedSlot,
+        item.isSelected && styles.selectedSlot
+      ]}
+      onPress={() => !item.isBooked && handleTimeSelect(item)}
+      disabled={item.isBooked}
+    >
+      <Text style={[
+        styles.timeText,
+        item.isBooked && styles.bookedText,
+        item.isSelected && styles.selectedText
+      ]}>
+        {item.time}
+      </Text>
+      {item.isBooked && (
+        <MaterialCommunityIcons name="calendar-clock" size={18} color="#999" />
+      )}
+    </TouchableOpacity>
+  );
+
+  const renderCalendarShimmer = () => (
+    <View style={styles.calendarContainer}>
+      <ShimmerPlaceholder
+        style={{ width: '100%', height: 350, borderRadius: 8 }}
+        shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+      />
+    </View>
+  );
+
+  const renderTimeSlotsShimmer = () => (
+    <View style={styles.timeSlotsContainer}>
+      <ShimmerPlaceholder
+        style={{ width: '70%', height: 24, borderRadius: 4, marginBottom: 16 }}
+        shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+      />
+      {Array(5).fill(0).map((_, index) => (
+        <ShimmerPlaceholder
+          key={index}
+          style={{ 
+            width: '100%', 
+            height: 50, 
+            borderRadius: 8, 
+            marginBottom: 10 
+          }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        />
+      ))}
+    </View>
+  );
+
   return (
     <>
       <FlatList
@@ -273,6 +499,27 @@ export default function AvailabilityCalendar({
         onClose={() => setIsModalVisible(false)}
         onConfirm={handleConfirm}
       />
+      <View style={styles.timeSlotsContainer}>
+        <Text style={styles.timeSlotsTitle}>
+          {selectedDate ? 'Available Time Slots' : 'Select a date to see available times'}
+        </Text>
+        
+        {selectedDate && slotsLoading ? (
+          renderTimeSlotsShimmer()
+        ) : selectedDate && timeSlots.length > 0 ? (
+          <FlatList
+            data={timeSlots}
+            renderItem={renderTimeSlot}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.timeSlotsList}
+          />
+        ) : selectedDate ? (
+          <View style={styles.noSlotsContainer}>
+            <MaterialCommunityIcons name="calendar-remove" size={40} color="#ccc" />
+            <Text style={styles.noSlotsText}>No available time slots for this date</Text>
+          </View>
+        ) : null}
+      </View>
     </>
   );
 }
@@ -468,6 +715,63 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: '#666',
+    textAlign: 'center',
+  },
+  timeSlotsContainer: {
+    flex: 1,
+    padding: 10,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  timeSlotsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#333',
+  },
+  timeSlotsList: {
+    paddingBottom: 20,
+  },
+  timeSlot: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    marginBottom: 10,
+    backgroundColor: '#f0f8ff',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#007bff',
+  },
+  bookedSlot: {
+    backgroundColor: '#f5f5f5',
+    borderLeftColor: '#ccc',
+  },
+  selectedSlot: {
+    backgroundColor: '#e6f7ff',
+    borderLeftColor: '#4CAF50',
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  selectedText: {
+    color: '#4CAF50',
+    fontWeight: 'bold',
+  },
+  noSlotsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  noSlotsText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#999',
     textAlign: 'center',
   },
 });

@@ -15,6 +15,11 @@ import Slider from "@react-native-community/slider";
 import PieChart from "react-native-pie-chart";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
+import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
+import LinearGradient from 'expo-linear-gradient';
+
+// Create shimmer component with a workaround for Expo's LinearGradient
+const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient as any);
 
 const EmotionAnalysis: React.FC = () => {
   const [emotions, setEmotions] = useState<{ [key: string]: number }>({
@@ -25,6 +30,20 @@ const EmotionAnalysis: React.FC = () => {
     Confused: 4,
     Disappointed: 1,
   });
+  const [modalVisible, setModalVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true); // New state for initial loading
+  const { session } = useAuth();
+
+  // Simulate initial loading - in a real app, you would set this after data fetching
+  React.useEffect(() => {
+    // Simulate data loading
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false);
+    }, 1500);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   const emotionColors: { [key: string]: string } = {
     Happy: "#FFFF00",
@@ -34,10 +53,6 @@ const EmotionAnalysis: React.FC = () => {
     Confused: "#A52A2A",
     Disappointed: "#FFA500",
   };
-
-  const [modalVisible, setModalVisible] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const { session } = useAuth();
 
   const handleSliderChange = (emotion: string, value: number) => {
     setEmotions((prevState) => ({
@@ -88,6 +103,64 @@ const EmotionAnalysis: React.FC = () => {
     }
   }
 
+  // Render shimmer for the mood tracker while loading
+  const renderShimmerView = () => (
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.title}>Mood Tracker</Text>
+        <Text style={styles.subtitle}>Swipe the slider for each emotion</Text>
+
+        {/* Shimmer for pie chart */}
+        <View style={styles.pieChartContainer}>
+          <ShimmerPlaceholder
+            style={{
+              width: widthAndHeight,
+              height: widthAndHeight,
+              borderRadius: widthAndHeight / 2,
+            }}
+            shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+            visible={!isInitialLoading}
+          />
+        </View>
+        
+        <View style={styles.card}>
+          {/* Shimmer for each slider */}
+          {Array(6).fill(0).map((_, index) => (
+            <View key={index} style={styles.sliderContainer}>
+              <ShimmerPlaceholder
+                style={{ width: 80, height: 20, marginRight: 10 }}
+                shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+                visible={!isInitialLoading}
+              />
+              <ShimmerPlaceholder
+                style={{ flex: 1, height: 20, borderRadius: 10 }}
+                shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+                visible={!isInitialLoading}
+              />
+            </View>
+          ))}
+          
+          {/* Shimmer for button */}
+          <ShimmerPlaceholder
+            style={{
+              height: 50,
+              borderRadius: 25,
+              width: '100%',
+              marginTop: 16
+            }}
+            shimmerColors={['#a7f3d0', '#34d399', '#a7f3d0']}
+            visible={!isInitialLoading}
+          />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+
+  // Show shimmer while loading
+  if (isInitialLoading) {
+    return renderShimmerView();
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -117,8 +190,11 @@ const EmotionAnalysis: React.FC = () => {
           <TouchableOpacity
             onPress={insertMoodTrackerData}
             style={styles.button}
+            disabled={loading}
           >
-            <Text style={styles.buttonText}>See Results</Text>
+            <Text style={styles.buttonText}>
+              {loading ? "Saving..." : "See Results"}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

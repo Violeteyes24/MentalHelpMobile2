@@ -15,6 +15,11 @@ import { supabase } from "../../lib/supabase";
 import { RadarChart } from "@salmonco/react-native-radar-chart";
 import { LineChart } from "react-native-chart-kit";
 import dayjs from 'dayjs';
+import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
+import LinearGradient from 'expo-linear-gradient';
+
+// Create shimmer component
+const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient as any);
 
 // Suppress log notifications
 LogBox.ignoreAllLogs();
@@ -114,14 +119,21 @@ export default function HomeScreen() {
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState('');
   const [userRating, setUserRating] = useState<{ rating: number; feedback: string } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [nameLoading, setNameLoading] = useState(true);
+  const [moodDataLoading, setMoodDataLoading] = useState(true);
+  const [ratingLoading, setRatingLoading] = useState(true);
 
   useEffect(() => {
     LogBox.ignoreAllLogs(); // Disable all log notifications
+    
     const getMoodData = async () => {
+      setMoodDataLoading(true);
       const weekData = await fetchLatestMoodTrackerData();
       const monthData = await fetchMonthlyMoodTrackerData();
       setMoodData(weekData);
       setMonthlyMoodData(monthData);
+      setMoodDataLoading(false);
     };
 
     getMoodData();
@@ -143,11 +155,14 @@ export default function HomeScreen() {
   }, [session?.user.id]);
 
   const getUserName = async () => {
+    setNameLoading(true);
     const fetchedName = await fetchUserName();
     setName(fetchedName);
+    setNameLoading(false);
   };
 
   const getUserRating = async () => {
+    setRatingLoading(true);
     const { data, error } = await supabase
       .from('app_ratings')
       .select('rating, feedback')
@@ -157,6 +172,7 @@ export default function HomeScreen() {
     if (data) {
       setUserRating(data);
     }
+    setRatingLoading(false);
   };
 
   const fetchAppointments = async () => {
@@ -206,9 +222,14 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (session?.user.id) {
-      getUserName();
-      getUserRating();
-      fetchAppointments(); // Fetch appointments when the session user id is available
+      setIsLoading(true);
+      Promise.all([
+        getUserName(),
+        getUserRating(),
+        fetchAppointments()
+      ]).finally(() => {
+        setIsLoading(false);
+      });
     }
   }, [session?.user.id]);
 
@@ -290,7 +311,7 @@ export default function HomeScreen() {
       console.error('Error submitting rating:', error);
       alert('Failed to submit rating');
     } else {
-      setUserRating({ rating, feedback });
+      setUserRating(data?.[0] as { rating: number; feedback: string } || { rating, feedback });
       setShowRatingModal(false);
       alert('Thank you for your feedback!');
     }
@@ -473,162 +494,265 @@ export default function HomeScreen() {
   const weeklyMoodSummary = getMostIntenseMood(moodData);
   const monthlyMoodSummary = getMostIntenseMood(monthlyMoodData);
 
-  return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>
-          Mental<Text style={styles.highlight}>Help</Text>
-        </Text>
-        <Text style={styles.subtitle}>Your mental health companion</Text>
-        <Text style={styles.welcome}>
-          Welcome back, <Text style={styles.userName}>{name}</Text>
-        </Text>
+  // Render shimmer components
+  const renderWelcomeShimmer = () => (
+    <View style={styles.header}>
+      <Text style={styles.title}>
+        Mental<Text style={styles.highlight}>Help</Text>
+      </Text>
+      <Text style={styles.subtitle}>Your mental health companion</Text>
+      <ShimmerPlaceholder
+        style={{ width: 200, height: 20, borderRadius: 4, alignSelf: 'center', marginTop: 10 }}
+        shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+      />
+    </View>
+  );
+
+  const renderSummaryCardShimmer = () => (
+    <View style={styles.summaryContainer}>
+      <View style={styles.summaryCard}>
+        <Text style={styles.summaryTitle}>This Week</Text>
+        <ShimmerPlaceholder
+          style={{ width: '80%', height: 30, borderRadius: 8, marginVertical: 10 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        />
+        <ShimmerPlaceholder
+          style={{ width: '60%', height: 24, borderRadius: 4, marginTop: 8 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        />
+        <ShimmerPlaceholder
+          style={{ width: '40%', height: 18, borderRadius: 4, marginTop: 10 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        />
       </View>
 
-      <View style={styles.summaryContainer}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>This Week</Text>
-          {weeklyMoodSummary ? (
-            <>
-              <Text style={[styles.moodHighlight, { backgroundColor: getEmotionColor(weeklyMoodSummary.mood) }]}>
-                {weeklyMoodSummary.mood}
-              </Text>
-              <View style={styles.intensityContainer}>
-                <Text style={styles.intensityLabel}>Intensity</Text>
-                <View style={styles.intensityBadge}>
-                  <Text style={styles.intensityText}>{weeklyMoodSummary.intensity}</Text>
-                </View>
-              </View>
-              <Text style={styles.scoreText}>
-                Score: {weeklyMoodSummary.score}/10
-              </Text>
-            </>
-          ) : (
-            <View style={styles.noDataContainer}>
-              <Text style={styles.noDataText}>No data available</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>This Month</Text>
-          {monthlyMoodSummary ? (
-            <>
-              <Text style={[styles.moodHighlight, { backgroundColor: getEmotionColor(monthlyMoodSummary.mood) }]}>
-                {monthlyMoodSummary.mood}
-              </Text>
-              <View style={styles.intensityContainer}>
-                <Text style={styles.intensityLabel}>Intensity</Text>
-                <View style={styles.intensityBadge}>
-                  <Text style={styles.intensityText}>{monthlyMoodSummary.intensity}</Text>
-                </View>
-              </View>
-              <Text style={styles.scoreText}>
-                Score: {monthlyMoodSummary.score}/10
-              </Text>
-            </>
-          ) : (
-            <View style={styles.noDataContainer}>
-              <Text style={styles.noDataText}>No data available</Text>
-            </View>
-          )}
-        </View>
+      <View style={styles.summaryCard}>
+        <Text style={styles.summaryTitle}>This Month</Text>
+        <ShimmerPlaceholder
+          style={{ width: '80%', height: 30, borderRadius: 8, marginVertical: 10 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        />
+        <ShimmerPlaceholder
+          style={{ width: '60%', height: 24, borderRadius: 4, marginTop: 8 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        />
+        <ShimmerPlaceholder
+          style={{ width: '40%', height: 18, borderRadius: 4, marginTop: 10 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        />
       </View>
+    </View>
+  );
 
-      {radarChartData.length > 0 ? (
-        <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Mood Distribution</Text>
-          <View style={styles.chartWrapper}>
-            <RadarChart
-              data={radarChartData}
-              maxValue={5}
-              gradientColor={{
-                startColor: "#34d399",
-                endColor: "#e1ede3",
-                count: 5,
-              }}
-              stroke={["#A3D9A5", "#68C48E", "#34D399", "#1C7F56", "#0B5A3B"]}
-              strokeWidth={[1, 1, 1, 1, 1]}
-              strokeOpacity={[1, 1, 1, 1, 0.2]}
-              labelColor="#433D3A"
-              dataFillColor="#34d399"
-              dataFillOpacity={0.8}
-              dataStroke="rgba(52, 211, 153, 0.8)"
-              dataStrokeWidth={2}
+  const renderChartShimmer = () => (
+    <View style={styles.chartContainer}>
+      <Text style={styles.chartTitle}>Mood Distribution</Text>
+      <ShimmerPlaceholder
+        style={{ width: screenWidth - 80, height: 220, borderRadius: 8, alignSelf: 'center' }}
+        shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+      />
+    </View>
+  );
+
+  const renderMoodEntryShimmer = (index: number) => (
+    <View key={index} style={styles.moodItemCard}>
+      <View style={[styles.moodIndicator, { backgroundColor: '#e0e0e0' }]} />
+      <View style={styles.moodItemContent}>
+        <ShimmerPlaceholder
+          style={{ width: '60%', height: 20, borderRadius: 4 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        />
+        <View style={styles.moodIntensityContainer}>
+          <ShimmerPlaceholder
+            style={{ width: '30%', height: 14, borderRadius: 4, marginVertical: 6 }}
+            shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          />
+          <View style={styles.intensityBarContainer}>
+            <ShimmerPlaceholder
+              style={{ width: '70%', height: 8, borderRadius: 4 }}
+              shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
             />
           </View>
+          <ShimmerPlaceholder
+            style={{ width: '20%', height: 14, borderRadius: 4, alignSelf: 'flex-end', marginTop: 4 }}
+            shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          />
         </View>
-      ) : null}
- 
-      <View style={styles.sectionDivider}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.sectionTitle}>{formattedDate}</Text> {/* Formatted date displayed within Text */}
-        <View style={styles.dividerLine} />
+        <ShimmerPlaceholder
+          style={{ width: '40%', height: 12, borderRadius: 4, marginTop: 8 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        />
       </View>
-{lineChartData && lineChartData.datasets && lineChartData.datasets[0].data.some(value => !isNaN(value)) && (
-        <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Weekly Mood Trends</Text>
-          <View style={styles.chartWrapper}>
-            <LineChart
-              data={lineChartData}
-              width={screenWidth - 40}
-              height={220}
-              chartConfig={{
-                backgroundGradientFrom: "#ffffff",
-                backgroundGradientTo: "#ffffff",
-                decimalPlaces: 1,
-                color: (opacity = 1) => `rgba(52, 211, 153, ${opacity})`,
-                labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                style: { borderRadius: 16 },
-                propsForDots: {
-                  r: "5",
-                  strokeWidth: "2",
-                  stroke: "#34d399"
-                }
-              }}
-              style={styles.chart}
-              bezier
-              onDataPointClick={(data) => {
-                const label = lineChartData.labels[data.index];
-                const value = data.value;
-                alert(`${label}, Over all Mood Intensity: ${value}`);
-              }}
-            />
+    </View>
+  );
+
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      {nameLoading ? renderWelcomeShimmer() : (
+        <View style={styles.header}>
+          <Text style={styles.title}>
+            Mental<Text style={styles.highlight}>Help</Text>
+          </Text>
+          <Text style={styles.subtitle}>Your mental health companion</Text>
+          <Text style={styles.welcome}>
+            Welcome back, <Text style={styles.userName}>{name}</Text>
+          </Text>
+        </View>
+      )}
+
+      {moodDataLoading ? renderSummaryCardShimmer() : (
+        <View style={styles.summaryContainer}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>This Week</Text>
+            {weeklyMoodSummary ? (
+              <>
+                <Text style={[styles.moodHighlight, { backgroundColor: getEmotionColor(weeklyMoodSummary.mood) }]}>
+                  {weeklyMoodSummary.mood}
+                </Text>
+                <View style={styles.intensityContainer}>
+                  <Text style={styles.intensityLabel}>Intensity</Text>
+                  <View style={styles.intensityBadge}>
+                    <Text style={styles.intensityText}>{weeklyMoodSummary.intensity}</Text>
+                  </View>
+                </View>
+                <Text style={styles.scoreText}>
+                  Score: {weeklyMoodSummary.score}/10
+                </Text>
+              </>
+            ) : (
+              <View style={styles.noDataContainer}>
+                <Text style={styles.noDataText}>No data available</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>This Month</Text>
+            {monthlyMoodSummary ? (
+              <>
+                <Text style={[styles.moodHighlight, { backgroundColor: getEmotionColor(monthlyMoodSummary.mood) }]}>
+                  {monthlyMoodSummary.mood}
+                </Text>
+                <View style={styles.intensityContainer}>
+                  <Text style={styles.intensityLabel}>Intensity</Text>
+                  <View style={styles.intensityBadge}>
+                    <Text style={styles.intensityText}>{monthlyMoodSummary.intensity}</Text>
+                  </View>
+                </View>
+                <Text style={styles.scoreText}>
+                  Score: {monthlyMoodSummary.score}/10
+                </Text>
+              </>
+            ) : (
+              <View style={styles.noDataContainer}>
+                <Text style={styles.noDataText}>No data available</Text>
+              </View>
+            )}
           </View>
         </View>
       )}
 
-      {monthlyChartData && (
-        <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Monthly Mood Trends</Text>
-          <View style={styles.chartWrapper}>
-            <LineChart
-              data={monthlyChartData}
-              width={screenWidth - 40}
-              height={220}
-              chartConfig={{
-                backgroundGradientFrom: "#ffffff",
-                backgroundGradientTo: "#ffffff",
-                decimalPlaces: 1,
-                color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
-                labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                style: { borderRadius: 16 },
-                propsForDots: {
-                  r: "5",
-                  strokeWidth: "2",
-                  stroke: "#8641f4"
-                }
-              }}
-              style={styles.chart}
-              bezier
-              onDataPointClick={(data) => {
-                const label = monthlyChartData.labels[data.index];
-                const value = data.value;
-                alert(`${label}, Over all Mood Intensity: ${value}`);
-              }}
-            />
+      {moodDataLoading ? renderChartShimmer() : (
+        radarChartData.length > 0 ? (
+          <View style={styles.chartContainer}>
+            <Text style={styles.chartTitle}>Mood Distribution</Text>
+            <View style={styles.chartWrapper}>
+              <RadarChart
+                data={radarChartData}
+                maxValue={5}
+                gradientColor={{
+                  startColor: "#34d399",
+                  endColor: "#e1ede3",
+                  count: 5,
+                }}
+                stroke={["#A3D9A5", "#68C48E", "#34D399", "#1C7F56", "#0B5A3B"]}
+                strokeWidth={[1, 1, 1, 1, 1]}
+                strokeOpacity={[1, 1, 1, 1, 0.2]}
+                labelColor="#433D3A"
+                dataFillColor="#34d399"
+                dataFillOpacity={0.8}
+                dataStroke="rgba(52, 211, 153, 0.8)"
+                dataStrokeWidth={2}
+              />
+            </View>
           </View>
-        </View>
+        ) : null
+      )}
+ 
+      <View style={styles.sectionDivider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.sectionTitle}>{formattedDate}</Text>
+        <View style={styles.dividerLine} />
+      </View>
+
+      {moodDataLoading ? renderChartShimmer() : (
+        lineChartData && lineChartData.datasets && lineChartData.datasets[0].data.some(value => !isNaN(value)) && (
+          <View style={styles.chartContainer}>
+            <Text style={styles.chartTitle}>Weekly Mood Trends</Text>
+            <View style={styles.chartWrapper}>
+              <LineChart
+                data={lineChartData}
+                width={screenWidth - 40}
+                height={220}
+                chartConfig={{
+                  backgroundGradientFrom: "#ffffff",
+                  backgroundGradientTo: "#ffffff",
+                  decimalPlaces: 1,
+                  color: (opacity = 1) => `rgba(52, 211, 153, ${opacity})`,
+                  labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                  style: { borderRadius: 16 },
+                  propsForDots: {
+                    r: "5",
+                    strokeWidth: "2",
+                    stroke: "#34d399"
+                  }
+                }}
+                style={styles.chart}
+                bezier
+                onDataPointClick={(data) => {
+                  const label = lineChartData.labels[data.index];
+                  const value = data.value;
+                  alert(`${label}, Over all Mood Intensity: ${value}`);
+                }}
+              />
+            </View>
+          </View>
+        )
+      )}
+
+      {moodDataLoading ? renderChartShimmer() : (
+        monthlyChartData && (
+          <View style={styles.chartContainer}>
+            <Text style={styles.chartTitle}>Monthly Mood Trends</Text>
+            <View style={styles.chartWrapper}>
+              <LineChart
+                data={monthlyChartData}
+                width={screenWidth - 40}
+                height={220}
+                chartConfig={{
+                  backgroundGradientFrom: "#ffffff",
+                  backgroundGradientTo: "#ffffff",
+                  decimalPlaces: 1,
+                  color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
+                  labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                  style: { borderRadius: 16 },
+                  propsForDots: {
+                    r: "5",
+                    strokeWidth: "2",
+                    stroke: "#8641f4"
+                  }
+                }}
+                style={styles.chart}
+                bezier
+                onDataPointClick={(data) => {
+                  const label = monthlyChartData.labels[data.index];
+                  const value = data.value;
+                  alert(`${label}, Over all Mood Intensity: ${value}`);
+                }}
+              />
+            </View>
+          </View>
+        )
       )}
 
       <View style={styles.sectionDivider}>
@@ -638,56 +762,68 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.moodList}>
-        {moodData && moodData.length > 0 ? (
-          moodData.slice(0, 6).map((mood, index) => (
-            <View key={index} style={styles.moodItemCard}>
-              <View style={[styles.moodIndicator, { backgroundColor: getEmotionColor(mood.mood_type) }]} />
-              <View style={styles.moodItemContent}>
-                <Text style={styles.moodText}>{mood.mood_type}</Text>
-                <View style={styles.moodIntensityContainer}>
-                  <Text style={styles.moodIntensityLabel}>Intensity</Text>
-                  <View style={styles.intensityBarContainer}>
-                    <View 
-                      style={[
-                        styles.intensityBar, 
-                        { width: `${(mood.intensity / 10) * 100}%`, backgroundColor: getEmotionColor(mood.mood_type) }
-                      ]} 
-                    />
-                  </View>
-                  <Text style={styles.moodIntensityValue}>{mood.intensity}/10</Text>
-                </View>
-                <Text style={styles.moodDate}>
-                  {new Date(mood.tracked_at).toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </Text>
-              </View>
-            </View>
-          ))
+        {moodDataLoading ? (
+          // Render 3 shimmer placeholders for mood entries
+          Array(3).fill(0).map((_, index) => renderMoodEntryShimmer(index))
         ) : (
-          <View style={styles.noEntriesContainer}>
-            <Text style={styles.noEntriesText}>No mood entries yet</Text>
-            <Text style={styles.noEntriesSubtext}>Track your first mood to see data here</Text>
-          </View>
+          moodData && moodData.length > 0 ? (
+            moodData.slice(0, 6).map((mood, index) => (
+              <View key={index} style={styles.moodItemCard}>
+                <View style={[styles.moodIndicator, { backgroundColor: getEmotionColor(mood.mood_type) }]} />
+                <View style={styles.moodItemContent}>
+                  <Text style={styles.moodText}>{mood.mood_type}</Text>
+                  <View style={styles.moodIntensityContainer}>
+                    <Text style={styles.moodIntensityLabel}>Intensity</Text>
+                    <View style={styles.intensityBarContainer}>
+                      <View 
+                        style={[
+                          styles.intensityBar, 
+                          { width: `${(mood.intensity / 10) * 100}%`, backgroundColor: getEmotionColor(mood.mood_type) }
+                        ]} 
+                      />
+                    </View>
+                    <Text style={styles.moodIntensityValue}>{mood.intensity}/10</Text>
+                  </View>
+                  <Text style={styles.moodDate}>
+                    {new Date(mood.tracked_at).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </Text>
+                </View>
+              </View>
+            ))
+          ) : (
+            <View style={styles.noEntriesContainer}>
+              <Text style={styles.noEntriesText}>No mood entries yet</Text>
+              <Text style={styles.noEntriesSubtext}>Track your first mood to see data here</Text>
+            </View>
+          )
         )}
       </View>
 
-      <TouchableOpacity
-        style={styles.ratingButton}
-        onPress={() => setShowRatingModal(true)}
-      >
-        <Text style={styles.ratingButtonText}>
-          {userRating ? 'Update Your Rating' : 'Rate Our App'}
-        </Text>
-        {userRating && (
-          <Text style={styles.currentRating}>
-            Your rating: {userRating.rating}/5
+      {ratingLoading ? (
+        <ShimmerPlaceholder
+          style={[styles.ratingButton, { width: '90%', height: 50, marginTop: 24, marginBottom: 12 }]}
+          shimmerColors={['#4eebc0', '#34d399', '#4eebc0']}
+        />
+      ) : (
+        <TouchableOpacity
+          style={styles.ratingButton}
+          onPress={() => setShowRatingModal(true)}
+        >
+          <Text style={styles.ratingButtonText}>
+            {userRating ? 'Update Your Rating' : 'Rate Our App'}
           </Text>
-        )}
-      </TouchableOpacity>
+          {userRating && (
+            <Text style={styles.currentRating}>
+              Your rating: {userRating.rating}/5
+            </Text>
+          )}
+        </TouchableOpacity>
+      )}
 
       <RatingModal
         visible={showRatingModal}

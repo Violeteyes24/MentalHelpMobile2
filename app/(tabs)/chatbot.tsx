@@ -15,6 +15,11 @@ import { Config } from "../../config/config";
 import { useAuth } from "../../context/AuthContext";
 import OpenAI from "openai";
 import { ScrollView as HScrollView } from 'react-native';
+import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
+import LinearGradient from 'expo-linear-gradient';
+
+// Create shimmer component with a workaround for Expo's LinearGradient
+const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient as any);
 
 // Define color palette for easy theming
 const colors = {
@@ -435,6 +440,102 @@ const Chatbot = () => {
       return responseText.trim() + " Sorry, there was an error generating a dynamic response.";
     }
   }
+
+  // Render shimmer components for chatbot loading state
+  const renderHeaderShimmer = () => (
+    <View>
+      <ShimmerPlaceholder 
+        style={{ width: 250, height: 32, borderRadius: 4, alignSelf: 'center', marginBottom: 4 }}
+        shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        visible={!isLoading}
+      />
+      <ShimmerPlaceholder 
+        style={{ width: 200, height: 16, borderRadius: 4, alignSelf: 'center', marginBottom: 16 }}
+        shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        visible={!isLoading}
+      />
+      <ShimmerPlaceholder 
+        style={{ width: 180, height: 14, borderRadius: 4, alignSelf: 'center', marginBottom: 20 }}
+        shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        visible={!isLoading}
+      />
+    </View>
+  );
+
+  const renderChatShimmer = () => (
+    <View style={styles.chatLog}>
+      <View style={styles.chatLogContent}>
+        {Array(3).fill(0).map((_, i) => (
+          <View key={i} style={{marginBottom: 24}}>
+            {/* Date header shimmer */}
+            <ShimmerPlaceholder 
+              style={{ 
+                width: 100, 
+                height: 20, 
+                borderRadius: 12,
+                alignSelf: 'center',
+                marginVertical: 15
+              }}
+              shimmerColors={['#e8f5e9', '#a7f3d0', '#e8f5e9']}
+              visible={!isLoading}
+            />
+            
+            {/* User message shimmer */}
+            <View style={[styles.userMessageContainer, {backgroundColor: 'transparent'}]}>
+              <ShimmerPlaceholder 
+                style={{ 
+                  width: '100%', 
+                  height: 80, 
+                  borderRadius: 20,
+                  borderBottomRightRadius: 4
+                }}
+                shimmerColors={['#a7f3d0', '#4ade80', '#a7f3d0']}
+                visible={!isLoading}
+              />
+            </View>
+            
+            {/* Bot message shimmer */}
+            <View style={[styles.botMessageContainer, {backgroundColor: 'transparent', borderWidth: 0}]}>
+              <ShimmerPlaceholder 
+                style={{ 
+                  width: '100%', 
+                  height: 120, 
+                  borderRadius: 20,
+                  borderBottomLeftRadius: 4
+                }}
+                shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+                visible={!isLoading}
+              />
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+
+  const renderQuestionShimmer = () => (
+    <View style={styles.carouselContainer}>
+      <HScrollView 
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.carousel}
+      >
+        {Array(4).fill(0).map((_, i) => (
+          <ShimmerPlaceholder 
+            key={i}
+            style={{ 
+              width: 160, 
+              height: 75, 
+              borderRadius: 25,
+              marginHorizontal: 6
+            }}
+            shimmerColors={['#a7f3d0', '#4ade80', '#a7f3d0']}
+            visible={!isLoading}
+          />
+        ))}
+      </HScrollView>
+    </View>
+  );
   
   return (
     <View style={styles.container}>
@@ -478,91 +579,94 @@ const Chatbot = () => {
         </View>
       </Modal>
 
-      <View style={styles.chatHeader}>
-        <Text style={styles.title}>Mental Health Chatbot</Text>
-      </View>
-      <Text style={styles.subtitle}>Your personal wellness companion</Text>
-      
-      <TouchableOpacity onPress={resetTerms}>
-        <Text style={styles.termsLink}>View Terms and Conditions</Text>
-      </TouchableOpacity>
+      {isLoading ? renderHeaderShimmer() : (
+        <>
+          <View style={styles.chatHeader}>
+            <Text style={styles.title}>Mental Health Chatbot</Text>
+          </View>
+          <Text style={styles.subtitle}>Your personal wellness companion</Text>
+          
+          <TouchableOpacity onPress={resetTerms}>
+            <Text style={styles.termsLink}>View Terms and Conditions</Text>
+          </TouchableOpacity>
+        </>
+      )}
       
       {/* Chat Messages */}
-      <ScrollView
-        style={styles.chatLog}
-        contentContainerStyle={styles.chatLogContent}
-      >
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading conversations...</Text>
-          </View>
-        ) : chatLog.length === 0 ? (
-          <View style={styles.emptyChat}>
-            <Text style={styles.emptyChatText}>
-              No conversations yet. Try asking one of the questions below.
-            </Text>
-          </View>
-        ) : (
-          Object.entries(groupedChatLog).map(([date, logs]) => (
-            <View key={date}>
-              <Text style={styles.chatDate}>{date}</Text>
-              {logs.map((log, index) => (
-                <View key={index} style={styles.messageWrapper}>
-                  <View style={styles.userMessageContainer}>
-                    <Text style={styles.messageHeader}>You</Text>
-                    <Text style={styles.userMessage}>{log.chatbot_question}</Text>
-                    <Text style={styles.timestamp}>{formatTimestamp(log.timestamp).split(',')[1]}</Text>
-                  </View>
-                  <View style={[styles.botMessageContainer, styles.botMessageShadow]}>
-                    <Text style={[styles.messageHeader, styles.botMessageHeader]}>Bot</Text>
-                    <Text style={styles.botMessage}>
-                      <Text style={styles.predefinedResponse}>{log.chatbot_answer}</Text>
-                      {log.dynamic_response_openai && (
-                        <Text style={styles.dynamicResponse}>
-                          {'\n\n'}{log.dynamic_response_openai}
-                        </Text>
-                      )}
-                    </Text>
-                    <Text style={[styles.timestamp, styles.botTimestamp]}>{formatTimestamp(log.timestamp).split(',')[1]}</Text>
-                  </View>
-                </View>
-              ))}
+      {isLoading ? renderChatShimmer() : (
+        <ScrollView
+          style={styles.chatLog}
+          contentContainerStyle={styles.chatLogContent}
+        >
+          {chatLog.length === 0 ? (
+            <View style={styles.emptyChat}>
+              <Text style={styles.emptyChatText}>
+                No conversations yet. Try asking one of the questions below.
+              </Text>
             </View>
-          ))
-        )}
-        
-        {isGenerating && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Generating response...</Text>
-          </View>
-        )}
-      </ScrollView>
+          ) : (
+            Object.entries(groupedChatLog).map(([date, logs]) => (
+              <View key={date}>
+                <Text style={styles.chatDate}>{date}</Text>
+                {logs.map((log, index) => (
+                  <View key={index} style={styles.messageWrapper}>
+                    <View style={styles.userMessageContainer}>
+                      <Text style={styles.messageHeader}>You</Text>
+                      <Text style={styles.userMessage}>{log.chatbot_question}</Text>
+                      <Text style={styles.timestamp}>{formatTimestamp(log.timestamp).split(',')[1]}</Text>
+                    </View>
+                    <View style={[styles.botMessageContainer, styles.botMessageShadow]}>
+                      <Text style={[styles.messageHeader, styles.botMessageHeader]}>Bot</Text>
+                      <Text style={styles.botMessage}>
+                        <Text style={styles.predefinedResponse}>{log.chatbot_answer}</Text>
+                        {log.dynamic_response_openai && (
+                          <Text style={styles.dynamicResponse}>
+                            {'\n\n'}{log.dynamic_response_openai}
+                          </Text>
+                        )}
+                      </Text>
+                      <Text style={[styles.timestamp, styles.botTimestamp]}>{formatTimestamp(log.timestamp).split(',')[1]}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ))
+          )}
+          
+          {isGenerating && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.loadingText}>Generating response...</Text>
+            </View>
+          )}
+        </ScrollView>
+      )}
 
       {/* Question Carousel */}
-      <View style={styles.carouselContainer}>
-        <HScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.carousel}
-        >
-          {questions.map((question, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.questionButton,
-                (isGenerating || hasDisagreed) && styles.questionButtonDisabled
-              ]}
-              onPress={() => handleQuestionPress(question.question)}
-              disabled={isGenerating || hasDisagreed}
-              activeOpacity={(isGenerating || hasDisagreed) ? 1 : 0.7}
-            >
-              <Text style={styles.questionText}>{question.question}</Text>
-            </TouchableOpacity>
-          ))}
-        </HScrollView>
-      </View>
+      {isLoading ? renderQuestionShimmer() : (
+        <View style={styles.carouselContainer}>
+          <HScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.carousel}
+          >
+            {questions.map((question, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.questionButton,
+                  (isGenerating || hasDisagreed) && styles.questionButtonDisabled
+                ]}
+                onPress={() => handleQuestionPress(question.question)}
+                disabled={isGenerating || hasDisagreed}
+                activeOpacity={(isGenerating || hasDisagreed) ? 1 : 0.7}
+              >
+                <Text style={styles.questionText}>{question.question}</Text>
+              </TouchableOpacity>
+            ))}
+          </HScrollView>
+        </View>
+      )}
     </View>
   );
 };

@@ -28,6 +28,11 @@ import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
 import { MaterialIcons } from "@expo/vector-icons";
+import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
+import LinearGradient from 'expo-linear-gradient';
+
+// Create shimmer component with a workaround for Expo's LinearGradient
+const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient as any);
 
 const supabase = createClient(
   "https://ybpoanqhkokhdqucwchy.supabase.co",
@@ -313,6 +318,54 @@ export default function CounselorList() {
     return `${formattedDate}, ${formatTime(startTime)} - ${formatTime(endTime)}`;
   }
 
+  // Render shimmer placeholders for loading state
+  const renderShimmerItem = (index: number) => (
+    <View key={index} style={styles.item}>
+      <ShimmerPlaceholder
+        style={styles.image}
+        shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+      />
+      <View style={styles.details}>
+        <ShimmerPlaceholder
+          style={{ width: '80%', height: 22, borderRadius: 4, marginBottom: 8 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        />
+        <ShimmerPlaceholder
+          style={{ width: '60%', height: 16, borderRadius: 4, marginBottom: 8 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        />
+        <View style={styles.secretaryContainer}>
+          <ShimmerPlaceholder
+            style={{ width: '90%', height: 16, borderRadius: 4 }}
+            shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          />
+        </View>
+      </View>
+      <View style={styles.buttonContainer}>
+        <ShimmerPlaceholder
+          style={[styles.messageButton, { backgroundColor: 'transparent' }]}
+          shimmerColors={['#a7f3d0', '#6ee7b7', '#a7f3d0']}
+        />
+        <ShimmerPlaceholder
+          style={[styles.messageButton, { backgroundColor: 'transparent' }]}
+          shimmerColors={['#bfdbfe', '#90caf9', '#bfdbfe']}
+        />
+      </View>
+    </View>
+  );
+
+  const renderShimmerFilters = () => (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+      {Array(7).fill(0).map((_, index) => (
+        <ShimmerPlaceholder
+          key={index}
+          style={{ width: 60, height: 32, borderRadius: 20, marginRight: 8 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        />
+      ))}
+    </ScrollView>
+  );
+
   const renderItem = ({ item }: { item: any }) => {
     const isCounselorLoading = messageLoading && loadingCounselorId === item.user_id;
     const isSecretaryLoading = messageLoading && item.secretary && loadingCounselorId === item.secretary.user_id;
@@ -395,8 +448,17 @@ export default function CounselorList() {
 
   if (loading) {
     return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#6ee7b7" />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <ShimmerPlaceholder
+            style={{ width: 240, height: 40, borderRadius: 4, alignSelf: 'center', marginBottom: 16 }}
+            shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          />
+          {renderShimmerFilters()}
+        </View>
+        <View style={styles.list}>
+          {Array(4).fill(0).map((_, index) => renderShimmerItem(index))}
+        </View>
       </View>
     );
   }
@@ -460,7 +522,20 @@ export default function CounselorList() {
             </View>
 
             {appointmentsLoading ? (
-              <ActivityIndicator size="large" color="#6ee7b7" style={styles.modalLoader} />
+              <View style={styles.modalLoader}>
+                {Array(3).fill(0).map((_, index) => (
+                  <ShimmerPlaceholder
+                    key={index}
+                    style={{ 
+                      width: '100%', 
+                      height: 120, 
+                      borderRadius: 10, 
+                      marginBottom: 12 
+                    }}
+                    shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+                  />
+                ))}
+              </View>
             ) : appointments.length > 0 ? (
               <ScrollView style={styles.appointmentsList}>
                 {appointments.map((appointment) => (
@@ -687,7 +762,8 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   modalLoader: {
-    padding: 40,
+    padding: 20,
+    width: '100%',
   },
   appointmentsList: {
     padding: 16,
