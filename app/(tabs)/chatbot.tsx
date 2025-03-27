@@ -91,6 +91,7 @@ interface MoodEntry {
   mood: string;
   tracked_at: string;
   user_id: string;
+  intensity?: number; // Add intensity field
   // Add other mood properties as needed
 }
 
@@ -431,15 +432,31 @@ const Chatbot = () => {
   
     // Extract highest mood from moodData
     let highestMood = "confused"; // Default mood
+    let highestMoodIntensity = 0; // Default intensity
+    
     if (moodData && moodData.length > 0) {
       // Count frequency of each mood
       const moodCounts: Record<string, number> = {};
       const validMoods = ["confused", "stressed", "happy", "disappointed", "afraid", "angry"];
       
+      // Track intensity for each mood type
+      const moodIntensities: Record<string, number> = {};
+      
       moodData.forEach((entry: MoodEntry) => {
         const mood = entry.mood?.toLowerCase();
         if (mood && validMoods.includes(mood)) {
           moodCounts[mood] = (moodCounts[mood] || 0) + 1;
+          
+          // Update intensity tracking - store the highest intensity for each mood type
+          const intensity = entry.intensity || 0;
+          if (!moodIntensities[mood] || intensity > moodIntensities[mood]) {
+            moodIntensities[mood] = intensity;
+          }
+          
+          // Track overall highest intensity
+          if (intensity > highestMoodIntensity) {
+            highestMoodIntensity = intensity;
+          }
         }
       });
       
@@ -475,6 +492,7 @@ User Profile:
 - Hobbies: ${userProfile.hobbies}
 - Achievements: ${userProfile.achievements}
 - Current Predominant Mood: ${highestMood}
+- Highest Mood Intensity (scale 1-10): ${highestMoodIntensity}
 
 Previous Conversation Context and Themes:
 ${conversationContext || 'No previous context available'}
@@ -484,11 +502,12 @@ User's Current Question: ${question}
 
 Guidelines for your response:
 1. Address the user by name and acknowledge their current mood state
-2. Reference their personal details (hobbies, achievements, etc.) to make the response feel personalized
-3. Use empathetic language that validates their feelings
-4. Provide supportive suggestions related to their interests
-5. End with an open question that encourages further dialogue
-6. Keep the response concise but meaningful (around 150-200 words)
+2. Consider the intensity level of their mood in your response - higher intensity requires more validation and support
+3. Reference their personal details (hobbies, achievements, etc.) to make the response feel personalized
+4. Use empathetic language that validates their feelings
+5. Provide supportive suggestions related to their interests
+6. End with an open question that encourages further dialogue
+7. Keep the response concise but meaningful (around 150-200 words)
 
 Your response:`;
   
@@ -650,7 +669,7 @@ Your response:`;
       {isLoading ? renderHeaderShimmer() : (
         <>
           <View style={styles.chatHeader}>
-            <Text style={styles.title}>Mental Health Chatbot</Text>
+            <Text style={styles.title}>MentalHelp Chatbot</Text>
           </View>
           <Text style={styles.subtitle}>Your personal wellness companion</Text>
           
