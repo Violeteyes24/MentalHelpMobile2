@@ -86,11 +86,31 @@ const groupChatByDate = (chatLog: ChatbotView[]): Record<string, ChatbotView[]> 
   return grouped;
 };
 
+// Add type for mood data
+interface MoodEntry {
+  mood: string;
+  tracked_at: string;
+  user_id: string;
+  // Add other mood properties as needed
+}
+
+// Add type for user data
+interface UserData {
+  user_id: string;
+  name?: string;
+  age?: string;
+  program?: string;
+  gender?: string;
+  hobbies?: string;
+  achievements?: string;
+  // Add other user properties as needed
+}
+
 const Chatbot = () => {
   const { session } = useAuth();
   const [chatLog, setChatLog] = useState<ChatbotView[]>([]);
-  const [userData, setUserData] = useState(null);
-  const [moodData, setMoodData] = useState(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [moodData, setMoodData] = useState<MoodEntry[]>([]);
   const [questions, setQuestions] = useState<{ id: string; question: string }[]>([]);
   const [showTerms, setShowTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -210,7 +230,7 @@ const Chatbot = () => {
       console.error("Error fetching user data:", error);
     } else {
       // console.log("Fetched user data:", data);
-      setUserData(data);
+      setUserData(data as UserData);
     }
   }
 
@@ -226,7 +246,7 @@ const Chatbot = () => {
       console.error("Error fetching mood data:", error);
     } else {
       // console.log("Fetched mood data:", JSON.stringify(data, null, 2));
-      setMoodData(data as any);
+      setMoodData(data as MoodEntry[]);
     }
   }
 
@@ -409,20 +429,68 @@ const Chatbot = () => {
     const conversationContext = await analyzeConversationContext();
     // console.log("Conversation context:", conversationContext);
   
-    // console.log("Proceeding to OpenAI API call");
-  
-    const prompt = `You are a mental health chat bot and is expected to assist the user, reply in a short and meaningful message.
+    // Extract highest mood from moodData
+    let highestMood = "confused"; // Default mood
+    if (moodData && moodData.length > 0) {
+      // Count frequency of each mood
+      const moodCounts: Record<string, number> = {};
+      const validMoods = ["confused", "stressed", "happy", "disappointed", "afraid", "angry"];
       
-  Previous Conversation Context and Themes:
-  ${conversationContext || 'No previous context available'}
+      moodData.forEach((entry: MoodEntry) => {
+        const mood = entry.mood?.toLowerCase();
+        if (mood && validMoods.includes(mood)) {
+          moodCounts[mood] = (moodCounts[mood] || 0) + 1;
+        }
+      });
+      
+      // Find most frequent mood
+      let maxCount = 0;
+      for (const [mood, count] of Object.entries(moodCounts)) {
+        if (count > maxCount) {
+          maxCount = count;
+          highestMood = mood;
+        }
+      }
+    }
+    
+    // Extract user profile details
+    const userProfile = {
+      name: userData?.name || "there",
+      age: userData?.age || "",
+      program: userData?.program || "",
+      gender: userData?.gender || "",
+      hobbies: userData?.hobbies || "",
+      achievements: userData?.achievements || ""
+    };
   
-  User Data: ${JSON.stringify(userData)}
-  Recent Mood History (Last 6 entries): ${JSON.stringify(moodData)}
-  Question: ${question}
+    const prompt = `You are a mental health chat bot designed to provide personalized, empathetic support. Create a response in the style of this example:
   
-  Based on the user's conversation history, current question, mood patterns from their last 6 mood entries, and personal data, provide a personalized and contextually relevant response. Consider any trends or changes in their mood when responding. Call the user by their name if available.
+Example: "Hey Zach, I can see you're feeling stressed, which is totally understandable given the high-pressure environment of being a tech student and leader. Your achievements show you're incredibly talented and driven—GDSC Lead, Regional Champions in AI.deas, and a top performer in the Philippine Start Up Challenge are no small feats. But with great accomplishments come great challenges, and it's okay to feel overwhelmed sometimes. Remember that your worth isn't just in your achievements, but in who you are as a person. Gaming and music can be great stress relievers—maybe take a moment to unwind with your favorite game or playlist. You've overcome complex challenges before, and you'll get through this stressful period too. Would you like to talk about what's specifically causing you stress right now?"
   
-  Response:`;
+User Profile:
+- Name: ${userProfile.name}
+- Age: ${userProfile.age}
+- Program/Course: ${userProfile.program}
+- Gender: ${userProfile.gender}
+- Hobbies: ${userProfile.hobbies}
+- Achievements: ${userProfile.achievements}
+- Current Predominant Mood: ${highestMood}
+
+Previous Conversation Context and Themes:
+${conversationContext || 'No previous context available'}
+
+Recent Mood History (Last 6 entries): ${JSON.stringify(moodData)}
+User's Current Question: ${question}
+
+Guidelines for your response:
+1. Address the user by name and acknowledge their current mood state
+2. Reference their personal details (hobbies, achievements, etc.) to make the response feel personalized
+3. Use empathetic language that validates their feelings
+4. Provide supportive suggestions related to their interests
+5. End with an open question that encourages further dialogue
+6. Keep the response concise but meaningful (around 150-200 words)
+
+Your response:`;
   
     try {
       // console.log("Sending request to OpenAI with prompt:", prompt);
