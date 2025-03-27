@@ -163,8 +163,53 @@ export default function Auth() {
             Alert.alert('Please enter your email, password, and full name')
             return;
         }
-        // Added password match validation for sign up
-        if(password !== confirmPassword){
+        
+        // Added validations for registration form content
+        if (
+            !email.trim() ||
+            !password.trim() ||
+            !confirmPassword.trim() ||
+            !name.trim() ||
+            !username.trim() ||
+            !contactNumber.trim() ||
+            !address.trim() ||
+            !gender.trim() ||
+            !department.trim() ||
+            !program.trim() ||
+            !programYearLevel.trim()
+        ) {
+            Alert.alert('Validation Error', 'Please fill in all required fields.');
+            return;
+        }
+        
+        // Validate birthday is not in the future
+        if (birthday > new Date()) {
+            Alert.alert('Validation Error', 'Birthday cannot be in the future.');
+            return;
+        }
+        
+        // Validate user is at least 13 years old
+        const thirteenYearsAgo = new Date();
+        thirteenYearsAgo.setFullYear(thirteenYearsAgo.getFullYear() - 13);
+        if (birthday > thirteenYearsAgo) {
+            Alert.alert('Validation Error', 'You must be at least 13 years old.');
+            return;
+        }
+        
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            Alert.alert('Validation Error', 'Please enter a valid email address.');
+            return;
+        }
+        
+        const phoneRegex = /^\d{10,11}$/;
+        if (!phoneRegex.test(contactNumber)) {
+            Alert.alert('Validation Error', 'Please enter a valid contact number with 10 or 11 digits.');
+            return;
+        }
+        
+        // Validate password match and length
+        if (password !== confirmPassword) {
             Alert.alert('Password Error', 'Passwords do not match');
             return;
         }
