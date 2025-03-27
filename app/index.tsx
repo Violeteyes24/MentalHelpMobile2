@@ -211,7 +211,7 @@ export default function Auth() {
                         .from('users')
                         .upsert({
                             user_id: userId,
-                            user_type: 'user',
+                            user_type: 'student',
                             name,
                             username,
                             address,

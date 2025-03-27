@@ -24,6 +24,7 @@ interface Message {
   message_content: string;
   sent_at: string;
   sender_name?: string;
+  sender_profile_image?: string | null;
 }
 
 interface PredefinedMessage {
@@ -202,33 +203,29 @@ export default function Messages() {
           message_content,
           conversation_id,
           users:sender_id (
-            name
+            name,
+            profile_image_url
           )
         `)
         .in("conversation_id", conversationIds)
         .order("sent_at", { ascending: true });
-      
-      if (messagesError) {
-        console.error("Error fetching messages:", messagesError);
-        return;
-      }
-      
-      console.log("Raw messages data from all conversations:", messagesData);
-      console.log("Total messages retrieved:", messagesData ? messagesData.length : 0);
-      
-      if (!messagesData || messagesData.length === 0) {
-        console.log("No messages found in any conversation");
+
+      if (!messagesData) {
+        console.error("No messages data found", messagesError);
         setMessages([]);
+        setIsLoading(false);
         return;
       }
-      
+
+      // In the formatting section
       const formattedMessages = messagesData.map((msg: any) => {
         const formattedMsg = {
           message_id: msg.message_id,
           sender_id: msg.sender_id,
           message_content: msg.message_content,
           sent_at: msg.sent_at,
-          sender_name: msg.users?.name || 'Unknown User'
+          sender_name: msg.users?.name || 'Unknown User',
+          sender_profile_image: msg.users?.profile_image_url || null
         };
         return formattedMsg;
       });
@@ -359,12 +356,20 @@ export default function Messages() {
           <Text style={styles.timestamp}>{new Date(item.sent_at).toLocaleTimeString()}</Text>
         </View>
       ) : (
-        <View style={[styles.botMessageContainer, styles.botMessageShadow]}>
-          <Text style={styles.senderName}>{item.sender_name}</Text>
-          <Text style={styles.botMessage}>{item.message_content}</Text>
-          <Text style={[styles.timestamp, styles.botTimestamp]}>
-            {new Date(item.sent_at).toLocaleTimeString()}
-          </Text>
+        <View style={styles.messageRow}>
+          {item.sender_profile_image && (
+            <Image
+              source={{ uri: item.sender_profile_image }}
+              style={styles.profileImage}
+            />
+          )}
+          <View style={[styles.botMessageContainer, styles.botMessageShadow, { marginLeft: 10 }]}>
+            <Text style={styles.senderName}>{item.sender_name}</Text>
+            <Text style={styles.botMessage}>{item.message_content}</Text>
+            <Text style={[styles.timestamp, styles.botTimestamp]}>
+              {new Date(item.sent_at).toLocaleTimeString()}
+            </Text>
+          </View>
         </View>
       )}
     </View>
@@ -446,6 +451,10 @@ export default function Messages() {
     </View>
   );
 
+  const headerProfileImage = messages.find(
+    (m) => m.sender_id !== session?.user.id
+  )?.sender_profile_image;
+
   return (
     <View style={styles.container}>
       {isLoading ? (
@@ -467,7 +476,21 @@ export default function Messages() {
         </>
       ) : (
         <>
-          <Text style={styles.title}>{userName || 'Conversation'}</Text>
+            <View style={styles.headerContainer}>
+            {userName && (
+              <View style={styles.userInfoContainer}>
+              {headerProfileImage ? (
+                <Image
+                source={{ uri: headerProfileImage }}
+                style={styles.profileImage}
+                />
+              ) : (
+                <View style={styles.placeholderImage} />
+              )}
+              <Text style={styles.title}>{userName}</Text>
+              </View>
+            )}
+            </View>
           
           {/* Debug information */}
           <Text style={styles.debugText}>
@@ -516,6 +539,17 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: "7%",
     backgroundColor: "#fff",
+  },
+  userInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
   },
   title: {
     fontSize: 24,
@@ -647,5 +681,24 @@ const styles = StyleSheet.create({
     color: 'rgba(0, 0, 0, 0.5)',
     marginBottom: 10,
     textAlign: 'center',
+  },
+  profileImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginBottom: 5,
+    marginRight: 10,
+  },
+  messageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  placeholderImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e0e0e0',
+    marginTop: 10,
+    marginBottom: 5,
   },
 });

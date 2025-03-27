@@ -4,7 +4,9 @@ LogBox.ignoreAllLogs();
 
 declare const global: {
   ErrorUtils?: {
-    setGlobalHandler: (callback: (error: Error, isFatal: boolean) => void) => void;
+    setGlobalHandler: (
+      callback: (error: Error, isFatal: boolean) => void
+    ) => void;
   };
 };
 if (global.ErrorUtils) {
@@ -28,8 +30,8 @@ import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
 import { MaterialIcons } from "@expo/vector-icons";
-import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
-import LinearGradient from 'expo-linear-gradient';
+import { createShimmerPlaceholder } from "react-native-shimmer-placeholder";
+import LinearGradient from "expo-linear-gradient";
 
 // Create shimmer component with a workaround for Expo's LinearGradient
 const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient as any);
@@ -46,10 +48,12 @@ export default function CounselorList() {
   const [loading, setLoading] = useState(true);
   // Add loading states for message actions
   const [messageLoading, setMessageLoading] = useState(false);
-  const [loadingCounselorId, setLoadingCounselorId] = useState<string | null>(null);
+  const [loadingCounselorId, setLoadingCounselorId] = useState<string | null>(
+    null
+  );
   const router = useRouter();
   const { session } = useAuth();
-  
+
   // New states for appointments
   const [modalVisible, setModalVisible] = useState(false);
   const [appointments, setAppointments] = useState<any[]>([]);
@@ -57,6 +61,7 @@ export default function CounselorList() {
 
   useEffect(() => {
     fetchCounselors();
+    fetchUpcomingAppointments();
   }, []);
 
   useEffect(() => {
@@ -67,25 +72,30 @@ export default function CounselorList() {
     );
   }, [selectedDepartment, allCounselors]);
 
-  async function handleNewMessage(user_id: string, userType: 'counselor' | 'secretary') {
+  async function handleNewMessage(
+    user_id: string,
+    userType: "counselor" | "secretary"
+  ) {
     // Set loading states
     setMessageLoading(true);
     setLoadingCounselorId(user_id);
-    
+
     try {
       // Only check for appointments if messaging a counselor
-      if (userType === 'counselor') {
+      if (userType === "counselor") {
         const now = new Date().toISOString();
         let { data: appointmentData, error: appointmentError } = await supabase
           .from("appointments")
-          .select(`
+          .select(
+            `
           *,
           availability_schedules (
             start_time,
             end_time,
             date
           )
-          `)
+          `
+          )
           .eq("user_id", session?.user.id)
           .eq("counselor_id", user_id)
           .gt("availability_schedules.date", now);
@@ -94,7 +104,9 @@ export default function CounselorList() {
         if (!appointmentData || appointmentData.length === 0) {
           setMessageLoading(false);
           setLoadingCounselorId(null);
-          return alert("You must have a future appointment with this counselor to message.");
+          return alert(
+            "You must have a future appointment with this counselor to message."
+          );
         }
       }
 
@@ -106,11 +118,11 @@ export default function CounselorList() {
             conversation_type: "active",
             created_by: session?.user.id,
             user_id: user_id,
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
           },
         ])
         .select();
-        
+
       if (error) {
         console.error("Error creating conversation:", error);
         Alert.alert("Error", "Failed to start conversation. Please try again.");
@@ -118,26 +130,26 @@ export default function CounselorList() {
         setLoadingCounselorId(null);
         return;
       }
-      
+
       if (data) {
         // After creating the conversation, immediately add a system message to identify the participants
         const conversationId = data[0].conversation_id;
-        
+
         // Get the recipient's name
         const { data: userData, error: userError } = await supabase
           .from("users")
           .select("name")
           .eq("user_id", user_id)
           .single();
-          
+
         if (userError) {
           console.error("Error fetching user name:", userError);
         }
-        
+
         // Add a system message to help identify the conversation
         if (userData) {
           const welcomeMessage = `You are now connected with ${userData.name} (${userType}).`;
-          
+
           await supabase.from("messages").insert([
             {
               conversation_id: conversationId,
@@ -146,15 +158,15 @@ export default function CounselorList() {
               message_type: "system",
               sent_at: new Date().toISOString(),
               is_read: true,
-              is_delivered: true
-            }
+              is_delivered: true,
+            },
           ]);
         }
-        
+
         // Clear loading states before navigation
         setMessageLoading(false);
         setLoadingCounselorId(null);
-        
+
         // Navigate to the messaging screen
         router.push(`/messaging/${conversationId}`);
       }
@@ -170,53 +182,59 @@ export default function CounselorList() {
     // Fetch counselors with their assigned secretaries
     let { data, error } = await supabase
       .from("users")
-      .select("user_id, name, contact_number, department_assigned")
+      .select("user_id, name, contact_number, department_assigned, profile_image_url")
       .eq("user_type", "counselor");
-
+    // console.log("fetching counselors", data); // it has fetched data successfully
     if (error) {
       console.error("Error fetching counselors:", error);
       setLoading(false);
       return;
     }
-    
+
     const counselorsData = data || [];
-    
+
     // For each counselor, fetch the assigned secretary
     const counselorsWithSecretaries = await Promise.all(
       counselorsData.map(async (counselor) => {
         // Fetch secretary assignment
-        const { data: secAssignmentData, error: secAssignmentError } = await supabase
-          .from("secretary_assignments")
-          .select(`
+        const { data: secAssignmentData, error: secAssignmentError } =
+          await supabase
+            .from("secretary_assignments")
+            .select(
+              `
             secretary_id,
             users:secretary_id (
               user_id,
               name,
               contact_number
             )
-          `)
-          .eq("counselor_id", counselor.user_id)
-          .single();
-        
-        if (secAssignmentError && secAssignmentError.code !== 'PGRST116') { 
+          `
+            )
+            .eq("counselor_id", counselor.user_id)
+            .single();
+
+        if (secAssignmentError && secAssignmentError.code !== "PGRST116") {
           // PGRST116 is the error code for no rows returned
-          console.error("Error fetching secretary assignment:", secAssignmentError);
+          console.error(
+            "Error fetching secretary assignment:",
+            secAssignmentError
+          );
         }
-        
+
         return {
           ...counselor,
-          secretary: secAssignmentData?.users || null
+          secretary: secAssignmentData?.users || null,
         };
       })
     );
-    
+
     setAllCounselors(counselorsWithSecretaries);
     setCounselors(
       counselorsWithSecretaries.filter(
         (counselor: any) => counselor.department_assigned === selectedDepartment
       )
     );
-    
+
     setLoading(false);
   }
 
@@ -227,39 +245,71 @@ export default function CounselorList() {
     setAppointmentsLoading(true);
     const now = new Date().toISOString();
     
-    let { data, error } = await supabase
-      .from("appointments")
-      .select(`
-        appointment_id,
-        status,
-        appointment_type,
-        counselor_id,
-        users:counselor_id (name),
-        availability_schedules (
-          availability_schedule_id,
-          date,
-          start_time,
-          end_time
-        )
-      `)
-      .eq("user_id", session.user.id)
-      .neq("status", "cancelled") // Exclude cancelled appointments
-      .not("availability_schedules", "is", null)
-      .gt("availability_schedules.date", now.split('T')[0])
-      // Updated ordering with foreignTable option
-      .order("date", { foreignTable: "availability_schedules", ascending: true });
+    try {
+        // Modify the query to directly fetch availability schedule
+        let { data, error } = await supabase
+            .from("appointments")
+            .select(`
+                *,
+                counselor:counselor_id (
+                    user_id,
+                    name,
+                    user_type,
+                    department,
+                    profile_image_url
+                )
+            `)
+            .eq("user_id", session.user.id)
+            .not('status', 'in', '("cancelled","completed")');
 
-    if (error) {
-      console.error("Error fetching appointments:", error);
-      Alert.alert("Error", "Failed to load your appointments");
-    } else {
-      setAppointments(data || []);
+        // If appointments are found, fetch their schedules separately
+        if (data && data.length > 0) {
+            const scheduleIds = data.map(app => app.availability_schedule_id).filter(Boolean);
+            
+            const { data: schedules, error: scheduleError } = await supabase
+                .from("availability_schedules")
+                .select("*")
+                .in("availability_schedule_id", scheduleIds);
+
+            // Map schedules to appointments
+            if (schedules) {
+                data = data.map(appointment => ({
+                    ...appointment,
+                    availability_schedules: schedules.find(
+                        schedule => schedule.availability_schedule_id === appointment.availability_schedule_id
+                    )
+                }));
+            }
+
+            if (scheduleError) {
+                console.error("Error fetching schedules:", scheduleError);
+            }
+        }
+
+        console.log("Fetched appointments with schedules:", data);
+
+        if (error) throw error;
+
+        // Additional logging and error handling
+        if (!data || data.length === 0) {
+            console.log("No upcoming appointments found");
+        }
+
+        setAppointments(data || []);
+    } catch (error) {
+        console.error("Error fetching appointments:", error);
+        Alert.alert("Error", "Failed to load your appointments");
+    } finally {
+        setAppointmentsLoading(false);
     }
-    setAppointmentsLoading(false);
-  }
+}
 
   // Update the cancellation function to also update availability
-  async function handleCancelAppointment(appointmentId: string, scheduleId: string, counselorId: string) {
+  async function handleCancelAppointment(
+    appointmentId: string,
+    scheduleId: string,
+    counselorId: string
+  ) {
     Alert.alert(
       "Cancel Appointment",
       "Are you sure you want to cancel this appointment?",
@@ -291,8 +341,8 @@ export default function CounselorList() {
                 router.push(`/availability/${counselorId}`);
               }
             }
-          }
-        }
+          },
+        },
       ]
     );
   }
@@ -303,19 +353,21 @@ export default function CounselorList() {
       weekday: "short",
       year: "numeric",
       month: "short",
-      day: "numeric"
+      day: "numeric",
     });
-    
+
     // Format time from HH:MM:SS to HH:MM AM/PM
     const formatTime = (timeStr: string) => {
-      const [hours, minutes] = timeStr.split(':');
+      const [hours, minutes] = timeStr.split(":");
       const hour = parseInt(hours);
-      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const ampm = hour >= 12 ? "PM" : "AM";
       const hour12 = hour % 12 || 12;
       return `${hour12}:${minutes} ${ampm}`;
     };
-    
-    return `${formattedDate}, ${formatTime(startTime)} - ${formatTime(endTime)}`;
+
+    return `${formattedDate}, ${formatTime(startTime)} - ${formatTime(
+      endTime
+    )}`;
   }
 
   // Render shimmer placeholders for loading state
@@ -323,126 +375,138 @@ export default function CounselorList() {
     <View key={index} style={styles.item}>
       <ShimmerPlaceholder
         style={styles.image}
-        shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        shimmerColors={["#f5f5f5", "#e0e0e0", "#f5f5f5"]}
       />
       <View style={styles.details}>
         <ShimmerPlaceholder
-          style={{ width: '80%', height: 22, borderRadius: 4, marginBottom: 8 }}
-          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          style={{ width: "80%", height: 22, borderRadius: 4, marginBottom: 8 }}
+          shimmerColors={["#f5f5f5", "#e0e0e0", "#f5f5f5"]}
         />
         <ShimmerPlaceholder
-          style={{ width: '60%', height: 16, borderRadius: 4, marginBottom: 8 }}
-          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          style={{ width: "60%", height: 16, borderRadius: 4, marginBottom: 8 }}
+          shimmerColors={["#f5f5f5", "#e0e0e0", "#f5f5f5"]}
         />
         <View style={styles.secretaryContainer}>
           <ShimmerPlaceholder
-            style={{ width: '90%', height: 16, borderRadius: 4 }}
-            shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+            style={{ width: "90%", height: 16, borderRadius: 4 }}
+            shimmerColors={["#f5f5f5", "#e0e0e0", "#f5f5f5"]}
           />
         </View>
       </View>
       <View style={styles.buttonContainer}>
         <ShimmerPlaceholder
-          style={[styles.messageButton, { backgroundColor: 'transparent' }]}
-          shimmerColors={['#a7f3d0', '#6ee7b7', '#a7f3d0']}
+          style={[styles.messageButton, { backgroundColor: "transparent" }]}
+          shimmerColors={["#a7f3d0", "#6ee7b7", "#a7f3d0"]}
         />
         <ShimmerPlaceholder
-          style={[styles.messageButton, { backgroundColor: 'transparent' }]}
-          shimmerColors={['#bfdbfe', '#90caf9', '#bfdbfe']}
+          style={[styles.messageButton, { backgroundColor: "transparent" }]}
+          shimmerColors={["#bfdbfe", "#90caf9", "#bfdbfe"]}
         />
       </View>
     </View>
   );
 
   const renderShimmerFilters = () => (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
-      {Array(7).fill(0).map((_, index) => (
-        <ShimmerPlaceholder
-          key={index}
-          style={{ width: 60, height: 32, borderRadius: 20, marginRight: 8 }}
-          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
-        />
-      ))}
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.filterContainer}
+    >
+      {Array(7)
+        .fill(0)
+        .map((_, index) => (
+          <ShimmerPlaceholder
+            key={index}
+            style={{ width: 60, height: 32, borderRadius: 20, marginRight: 8 }}
+            shimmerColors={["#f5f5f5", "#e0e0e0", "#f5f5f5"]}
+          />
+        ))}
     </ScrollView>
   );
 
   const renderItem = ({ item }: { item: any }) => {
-    const isCounselorLoading = messageLoading && loadingCounselorId === item.user_id;
-    const isSecretaryLoading = messageLoading && item.secretary && loadingCounselorId === item.secretary.user_id;
-    
+    const isCounselorLoading =
+      messageLoading && loadingCounselorId === item.user_id;
+    const isSecretaryLoading =
+      messageLoading &&
+      item.secretary &&
+      loadingCounselorId === item.secretary.user_id;
+
     return (
-    <TouchableOpacity
-      key={item.user_id}
-      style={styles.item}
-      onPress={() => {
-        router.push(`/availability/${item.user_id}`);
-      }}
-    >
-      <Image
-        source={{
-          uri: "https://static.vecteezy.com/system/resources/thumbnails/036/594/092/small_2x/man-empty-avatar-photo-placeholder-for-social-networks-resumes-forums-and-dating-sites-male-and-female-no-photo-images-for-unfilled-user-profile-free-vector.jpg",
+      <TouchableOpacity
+        key={item.user_id}
+        style={styles.item}
+        onPress={() => {
+          router.push(`/availability/${item.user_id}`);
         }}
-        style={styles.image}
-      />
-      <View style={styles.details}>
-        <Text style={styles.name}>{item.name}</Text>
-        <Text style={styles.contact}>{item.contact_number}</Text>
-        
-        {item.secretary && (
-          <View style={styles.secretaryContainer}>
-            <Text style={styles.secretaryLabel}>Secretary:</Text>
-            <Text style={styles.secretaryName}>{item.secretary.name}</Text>
-          </View>
-        )}
-      </View>
-      
-      <View style={styles.buttonContainer}>
-        {/* Counselor message button */}
-        <TouchableOpacity
-          style={[
-            styles.messageButton,
-            isCounselorLoading && styles.messageButtonDisabled
-          ]}
-          onPress={(e) => {
-            e.stopPropagation();
-            if (!messageLoading) {
-              handleNewMessage(item.user_id, 'counselor');
-            }
+      >
+        <Image
+          source={{
+            uri: item.profile_image_url
+              ? item.profile_image_url
+              : "https://static.vecteezy.com/system/resources/thumbnails/036/594/092/small_2x/man-empty-avatar-photo-placeholder-for-social-networks-resumes-forums-and-dating-sites-male-and-female-no-photo-images-for-unfilled-user-profile-free-vector.jpg", // fallback placeholder
           }}
-          disabled={messageLoading}
-        >
-          {isCounselorLoading ? (
-            <ActivityIndicator size="small" color="#ffffff" />
-          ) : (
-            <MaterialIcons name="message" size={24} color="white" />
+          style={styles.image}
+        />
+        <View style={styles.details}>
+          <Text style={styles.name}>{item.name}</Text>
+          <Text style={styles.contact}>{item.contact_number}</Text>
+
+          {item.secretary && (
+            <View style={styles.secretaryContainer}>
+              <Text style={styles.secretaryLabel}>Secretary:</Text>
+              <Text style={styles.secretaryName}>{item.secretary.name}</Text>
+            </View>
           )}
-        </TouchableOpacity>
-        
-        {/* Secretary message button - only show if secretary exists */}
-        {item.secretary && (
+        </View>
+
+        <View style={styles.buttonContainer}>
+          {/* Counselor message button */}
           <TouchableOpacity
             style={[
-              styles.messageButton, 
-              styles.secretaryMessageButton,
-              isSecretaryLoading && styles.messageButtonDisabled
+              styles.messageButton,
+              isCounselorLoading && styles.messageButtonDisabled,
             ]}
             onPress={(e) => {
               e.stopPropagation();
               if (!messageLoading) {
-                handleNewMessage(item.secretary.user_id, 'secretary');
+                handleNewMessage(item.user_id, "counselor");
               }
             }}
             disabled={messageLoading}
           >
-            {isSecretaryLoading ? (
+            {isCounselorLoading ? (
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
-              <MaterialIcons name="contact-mail" size={24} color="white" />
+              <MaterialIcons name="message" size={24} color="white" />
             )}
           </TouchableOpacity>
-        )}
-      </View>
-    </TouchableOpacity>
+
+          {/* Secretary message button - only show if secretary exists */}
+          {item.secretary && (
+            <TouchableOpacity
+              style={[
+                styles.messageButton,
+                styles.secretaryMessageButton,
+                isSecretaryLoading && styles.messageButtonDisabled,
+              ]}
+              onPress={(e) => {
+                e.stopPropagation();
+                if (!messageLoading) {
+                  handleNewMessage(item.secretary.user_id, "secretary");
+                }
+              }}
+              disabled={messageLoading}
+            >
+              {isSecretaryLoading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <MaterialIcons name="contact-mail" size={24} color="white" />
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -451,13 +515,21 @@ export default function CounselorList() {
       <View style={styles.container}>
         <View style={styles.header}>
           <ShimmerPlaceholder
-            style={{ width: 240, height: 40, borderRadius: 4, alignSelf: 'center', marginBottom: 16 }}
-            shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+            style={{
+              width: 240,
+              height: 40,
+              borderRadius: 4,
+              alignSelf: "center",
+              marginBottom: 16,
+            }}
+            shimmerColors={["#f5f5f5", "#e0e0e0", "#f5f5f5"]}
           />
           {renderShimmerFilters()}
         </View>
         <View style={styles.list}>
-          {Array(4).fill(0).map((_, index) => renderShimmerItem(index))}
+          {Array(4)
+            .fill(0)
+            .map((_, index) => renderShimmerItem(index))}
         </View>
       </View>
     );
@@ -470,7 +542,11 @@ export default function CounselorList() {
       <ScrollView>
         <View style={styles.header}>
           <Text style={styles.title}>Counselor's List</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterContainer}
+          >
             {departments.map((dep) => (
               <TouchableOpacity
                 key={dep}
@@ -480,10 +556,14 @@ export default function CounselorList() {
                 ]}
                 onPress={() => setSelectedDepartment(dep)}
               >
-                <Text style={[
-                  styles.filterText,
-                  selectedDepartment === dep && styles.filterTextActive,
-                ]}>{dep}</Text>
+                <Text
+                  style={[
+                    styles.filterText,
+                    selectedDepartment === dep && styles.filterTextActive,
+                  ]}
+                >
+                  {dep}
+                </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -494,14 +574,16 @@ export default function CounselorList() {
       </ScrollView>
 
       {/* Floating Action Button */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.fab}
         onPress={() => {
           fetchUpcomingAppointments();
           setModalVisible(true);
         }}
       >
-        <Text style={{ color: "white", fontSize: 12 }}>Upcoming Appointments</Text>
+        <Text style={{ color: "white", fontSize: 12 }}>
+          Upcoming Appointments
+        </Text>
         <MaterialIcons name="event" size={24} color="white" />
       </TouchableOpacity>
 
@@ -523,26 +605,31 @@ export default function CounselorList() {
 
             {appointmentsLoading ? (
               <View style={styles.modalLoader}>
-                {Array(3).fill(0).map((_, index) => (
-                  <ShimmerPlaceholder
-                    key={index}
-                    style={{ 
-                      width: '100%', 
-                      height: 120, 
-                      borderRadius: 10, 
-                      marginBottom: 12 
-                    }}
-                    shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
-                  />
-                ))}
+                {Array(3)
+                  .fill(0)
+                  .map((_, index) => (
+                    <ShimmerPlaceholder
+                      key={index}
+                      style={{
+                        width: "100%",
+                        height: 120,
+                        borderRadius: 10,
+                        marginBottom: 12,
+                      }}
+                      shimmerColors={["#f5f5f5", "#e0e0e0", "#f5f5f5"]}
+                    />
+                  ))}
               </View>
             ) : appointments.length > 0 ? (
               <ScrollView style={styles.appointmentsList}>
                 {appointments.map((appointment) => (
-                  <View key={appointment.appointment_id} style={styles.appointmentItem}>
+                  <View
+                    key={appointment.appointment_id}
+                    style={styles.appointmentItem}
+                  >
                     <View style={styles.appointmentInfo}>
                       <Text style={styles.appointmentCounselor}>
-                        {appointment.users?.name || "Unknown Counselor"}
+                        {appointment.counselor?.name || "Unknown Counselor"}
                       </Text>
                       <Text style={styles.appointmentDateTime}>
                         {appointment.availability_schedules
@@ -553,22 +640,33 @@ export default function CounselorList() {
                             )
                           : "Schedule not available"}
                       </Text>
-                      <Text style={[
-                        styles.appointmentStatus,
-                        { color: appointment.status === "confirmed" ? "#4CAF50" : "#FF9800" }
-                      ]}>
-                        Status: {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                      <Text
+                        style={[
+                          styles.appointmentStatus,
+                          {
+                            color:
+                              appointment.status === "confirmed"
+                                ? "#4CAF50"
+                                : "#FF9800",
+                          },
+                        ]}
+                      >
+                        Status:{" "}
+                        {appointment.status.charAt(0).toUpperCase() +
+                          appointment.status.slice(1)}
                       </Text>
                     </View>
                     <View style={styles.appointmentActions}>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={[styles.actionButton, styles.cancelButton]}
-                        // Pass appointment id, availability_schedule id, and counselor id to cancellation function
-                        onPress={() => handleCancelAppointment(
-                          appointment.appointment_id,
-                          appointment.availability_schedules.availability_schedule_id,
-                          appointment.counselor_id
-                        )}
+                        onPress={() =>
+                          handleCancelAppointment(
+                            appointment.appointment_id,
+                            appointment.availability_schedules
+                              ?.availability_schedule_id,
+                            appointment.counselor_id
+                          )
+                        }
                       >
                         <Text style={styles.actionButtonText}>Cancel</Text>
                       </TouchableOpacity>
@@ -579,7 +677,9 @@ export default function CounselorList() {
             ) : (
               <View style={styles.noAppointments}>
                 <MaterialIcons name="event-busy" size={48} color="#ccc" />
-                <Text style={styles.noAppointmentsText}>No upcoming appointments</Text>
+                <Text style={styles.noAppointmentsText}>
+                  No upcoming appointments
+                </Text>
               </View>
             )}
           </View>
@@ -711,7 +811,7 @@ const styles = StyleSheet.create({
   filterTextActive: {
     color: "#fff",
   },
-  
+
   // New styles for the FAB and Appointments Modal
   fab: {
     position: "absolute",
@@ -729,7 +829,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 8,
     padding: 12,
-},
+  },
   modalContainer: {
     flex: 1,
     justifyContent: "center",
@@ -763,7 +863,7 @@ const styles = StyleSheet.create({
   },
   modalLoader: {
     padding: 20,
-    width: '100%',
+    width: "100%",
   },
   appointmentsList: {
     padding: 16,

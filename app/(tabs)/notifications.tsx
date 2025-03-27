@@ -328,11 +328,11 @@ const NotificationUI: React.FC = () => {
               continue;
             }
             
-            // Now we can safely construct the notification
+            // Now we can safely construct the notification with format similar to cancelled appointments
             appointmentNotifications.push({
               id: appointment.appointment_id,
               type: 'rescheduled',
-              content: `Your appointment has been rescheduled by ${counselorData.name}. New schedule: ${formatDate(new Date(availabilityData.date))} at ${convert24To12Hour(availabilityData.start_time)}.`,
+              content: `Your appointment on ${formatDate(new Date(availabilityData.date))} at ${convert24To12Hour(availabilityData.start_time)} has been rescheduled by ${counselorData.name}.`,
               date: availabilityData.date + 'T' + availabilityData.start_time, // Use availability date+time for sorting
               appointmentDate: availabilityData.date,
               appointmentTime: `${convert24To12Hour(availabilityData.start_time)} - ${convert24To12Hour(availabilityData.end_time)}`,

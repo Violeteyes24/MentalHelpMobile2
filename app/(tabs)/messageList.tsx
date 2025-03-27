@@ -11,8 +11,8 @@ import { supabase } from "../../lib/supabase";
 import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
-import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
-import LinearGradient from 'expo-linear-gradient';
+import { createShimmerPlaceholder } from "react-native-shimmer-placeholder";
+import LinearGradient from "expo-linear-gradient";
 
 // Create shimmer component with a workaround for Expo's LinearGradient
 const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient as any);
@@ -23,6 +23,7 @@ type Message = {
   conversation_id: string;
   sender_name?: string;
   created_at?: string;
+  profile_image_url?: string;
 };
 
 type AggregatedConversation = {
@@ -32,14 +33,20 @@ type AggregatedConversation = {
   sender_ids: string[];
   latestConversationId: string;
   count: number;
+  profile_image_url?: string;
 };
 
 /**
  * Transforms an array of conversations by aggregating entries with the same sender_name
  */
-function aggregateConversationsBySender(conversations: Message[]): AggregatedConversation[] {
+function aggregateConversationsBySender(
+  conversations: Message[]
+): AggregatedConversation[] {
   // Create a map to group conversations by sender name
-  const conversationMap = new Map<string, AggregatedConversation & { lastUpdated: string }>();
+  const conversationMap = new Map<
+    string,
+    AggregatedConversation & { lastUpdated: string }
+  >();
 
   // Process each conversation
   for (const conversation of conversations) {
@@ -55,32 +62,47 @@ function aggregateConversationsBySender(conversations: Message[]): AggregatedCon
         sender_ids: [conversation.sender_id],
         latestConversationId: conversation.conversation_id,
         count: 1,
+        profile_image_url: conversation.profile_image_url, // Store the first encountered profile image
         lastUpdated: createdAt,
       });
     } else {
       const currentEntry = conversationMap.get(senderName)!;
-      if (!currentEntry.conversation_ids.includes(conversation.conversation_id)) {
+      if (
+        !currentEntry.conversation_ids.includes(conversation.conversation_id)
+      ) {
         currentEntry.conversation_ids.push(conversation.conversation_id);
         currentEntry.message_contents.push(conversation.message_content);
         currentEntry.count += 1;
       }
       // Update latestConversationId if this conversation is more recent
-      if (createdAt && new Date(createdAt).getTime() > new Date(currentEntry.lastUpdated).getTime()) {
+      if (
+        createdAt &&
+        new Date(createdAt).getTime() >
+          new Date(currentEntry.lastUpdated).getTime()
+      ) {
         currentEntry.latestConversationId = conversation.conversation_id;
         currentEntry.lastUpdated = createdAt;
       }
     }
   }
   // Remove the internal lastUpdated property from the result
-  return Array.from(conversationMap.values()).map(({ lastUpdated, ...rest }) => rest);
+  return Array.from(conversationMap.values()).map(
+    ({ lastUpdated, ...rest }) => rest
+  );
 }
 
 export default function MessageList() {
   const [conversations, setConversations] = useState<Message[]>([]);
-  const [aggregatedConversations, setAggregatedConversations] = useState<AggregatedConversation[]>([]);
+  const [aggregatedConversations, setAggregatedConversations] = useState<
+    AggregatedConversation[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { session } = useAuth();
+
+  // Placeholder image URL
+  const PLACEHOLDER_IMAGE =
+    "https://static.vecteezy.com/system/resources/thumbnails/036/594/092/small_2x/man-empty-avatar-photo-placeholder-for-social-networks-resumes-forums-and-dating-sites-male-and-female-no-photo-images-for-unfilled-user-profile-free-vector.jpg";
 
   useEffect(() => {
     fetchConversations();
@@ -138,6 +160,10 @@ export default function MessageList() {
               ? conversation.creator_name
               : conversation.user_name,
           created_at: conversation.created_at,
+          profile_image_url:
+            conversation.user_id === currentUserId
+              ? conversation.creator_profile_image
+              : conversation.user_profile_image,
         }));
 
         setConversations(formattedConversations);
@@ -162,7 +188,7 @@ export default function MessageList() {
     >
       <Image
         source={{
-          uri: "https://static.vecteezy.com/system/resources/thumbnails/036/594/092/small_2x/man-empty-avatar-photo-placeholder-for-social-networks-resumes-forums-and-dating-sites-male-and-female-no-photo-images-for-unfilled-user-profile-free-vector.jpg",
+          uri: item.profile_image_url || PLACEHOLDER_IMAGE,
         }}
         style={styles.avatar}
       />
@@ -187,24 +213,24 @@ export default function MessageList() {
     <View key={index} style={styles.itemContainer}>
       <ShimmerPlaceholder
         style={styles.avatar}
-        shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        shimmerColors={["#f5f5f5", "#e0e0e0", "#f5f5f5"]}
         visible={!loading}
       />
       <View style={styles.messageContainer}>
         <ShimmerPlaceholder
-          style={{ width: '60%', height: 18, borderRadius: 4, marginBottom: 8 }}
-          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          style={{ width: "60%", height: 18, borderRadius: 4, marginBottom: 8 }}
+          shimmerColors={["#f5f5f5", "#e0e0e0", "#f5f5f5"]}
           visible={!loading}
         />
         <ShimmerPlaceholder
-          style={{ width: '80%', height: 16, borderRadius: 4 }}
-          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          style={{ width: "80%", height: 16, borderRadius: 4 }}
+          shimmerColors={["#f5f5f5", "#e0e0e0", "#f5f5f5"]}
           visible={!loading}
         />
       </View>
       <ShimmerPlaceholder
         style={styles.badgeContainer}
-        shimmerColors={['#a7f3d0', '#6ee7b7', '#a7f3d0']}
+        shimmerColors={["#a7f3d0", "#6ee7b7", "#a7f3d0"]}
         visible={!loading}
       />
     </View>
@@ -215,7 +241,9 @@ export default function MessageList() {
       <View style={styles.container}>
         <Text style={styles.title}>Messages</Text>
         <View>
-          {Array(6).fill(0).map((_, index) => renderShimmerItem(index))}
+          {Array(6)
+            .fill(0)
+            .map((_, index) => renderShimmerItem(index))}
         </View>
       </View>
     );
