@@ -24,14 +24,16 @@ const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient as any);
 // Define color palette for easy theming
 const colors = {
   primary: "#4ade80",
-  primaryDark: "#34d399",
+  primaryDark: "#22c55e",
   primaryLight: "#a7f3d0",
-  background: "#f9fafb",
+  background: "#f0f9f5",
   cardBg: "#ffffff",
+  cardBgAlt: "#f7fdfb",
   text: "#1f2937",
   textLight: "#6b7280",
   textInverted: "#ffffff",
   border: "#e5e7eb",
+  borderLight: "#ecfdf5",
   shadow: "#000000",
 };
 
@@ -669,7 +671,7 @@ Your response:`;
       {isLoading ? renderHeaderShimmer() : (
         <>
           <View style={styles.chatHeader}>
-            <Text style={styles.title}>Talk to Rezelle</Text>
+            <Text style={styles.title}>Talk to Zakaris</Text>
           </View>
           <Text style={styles.subtitle}>Your personal wellness companion</Text>
           
@@ -771,8 +773,9 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center",
     marginBottom: 4,
-    color: colors.text,
+    color: colors.primaryDark,
     letterSpacing: 0.5,
+    width: '100%',
   },
   subtitle: {
     fontSize: 14,
@@ -783,13 +786,15 @@ const styles = StyleSheet.create({
   chatLog: {
     flex: 1,
     marginBottom: 12,
-    borderRadius: 12,
+    borderRadius: 16,
     backgroundColor: colors.cardBg,
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
   chatLogContent: {
     paddingVertical: 15,
@@ -808,19 +813,19 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.12,
     shadowRadius: 3,
     elevation: 2,
     paddingBottom: 12,
   },
   botMessageContainer: {
     alignSelf: "flex-start",
-    backgroundColor: colors.cardBg,
+    backgroundColor: colors.cardBgAlt,
     padding: 16,
     borderRadius: 20,
     borderBottomLeftRadius: 4,
     maxWidth: "85%",
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     borderWidth: 1,
     paddingBottom: 12,
   },
@@ -864,6 +869,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
   carousel: {
     paddingHorizontal: 4,
@@ -883,9 +890,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.12,
     shadowRadius: 3,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   questionText: {
     color: colors.textInverted,
@@ -893,6 +902,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 20,
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   timestamp: {
     fontSize: 11,
@@ -948,6 +960,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   acceptButtonText: {
     color: colors.textInverted,
@@ -960,6 +974,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     textDecorationLine: 'underline',
     marginBottom: 20,
+    fontWeight: '500',
   },
   loadingContainer: {
     padding: 20,
@@ -994,6 +1009,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     overflow: 'hidden',
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   emptyChat: {
     flex: 1,
@@ -1008,9 +1028,10 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   chatHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    width: '100%',
+    justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
+    marginTop: 8,
   },
 });

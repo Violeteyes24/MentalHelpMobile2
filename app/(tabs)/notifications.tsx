@@ -8,6 +8,69 @@ const supabase = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlicG9hbnFoa29raGRxdWN3Y2h5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ0MDg2MTUsImV4cCI6MjA0OTk4NDYxNX0.pxmpPITVIItZ_pcChUmmx06C8CkMfg5E80ukMGfPZkU"
 );
 
+// Create a simple shimmer effect component without using external libraries
+interface ShimmerPlaceholderProps {
+  style: any;
+  shimmerColors?: string[];
+  visible?: boolean;
+  children?: React.ReactNode;
+}
+
+const ShimmerPlaceholder: React.FC<ShimmerPlaceholderProps> = ({ style, shimmerColors, visible, children }) => {
+  const [position, setPosition] = useState(0);
+  
+  useEffect(() => {
+    let animationFrame: number | undefined;
+    let startTime: number | undefined;
+    
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const progress = (timestamp - startTime) / 1000; // duration in seconds
+      
+      // Create a looping animation from 0 to 1 and back
+      const newPosition = Math.sin(progress * 2) * 0.5 + 0.5;
+      setPosition(newPosition);
+      
+      animationFrame = requestAnimationFrame(animate);
+    };
+    
+    if (!visible) {
+      animationFrame = requestAnimationFrame(animate);
+    }
+    
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+    };
+  }, [visible]);
+  
+  if (visible) {
+    return <>{children}</> || null;
+  }
+  
+  // Extract colors with defaults
+  const [color1, color2, color3] = shimmerColors || ['#f5f5f5', '#e0e0e0', '#f5f5f5'];
+  
+  // Create gradient-like effect with opacity
+  const backgroundColor = position < 0.5 
+    ? color1 
+    : position < 0.75 
+      ? color2 
+      : color3;
+  
+  const opacity = 0.7 + (position * 0.3); // varies opacity slightly for shimmer effect
+  
+  return (
+    <View
+      style={[
+        style,
+        { backgroundColor, opacity },
+      ]}
+    />
+  );
+};
+
 // Add a custom date formatting function
 const formatDate = (date: Date): string => {
   return date.toLocaleDateString('en-US', {
@@ -75,7 +138,8 @@ interface NotificationSection {
 const NotificationUI: React.FC = () => {
   const [regularNotifications, setRegularNotifications] = useState<Notification[]>([]);
   const [appointmentNotifications, setAppointmentNotifications] = useState<AppointmentNotification[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Changed to true for initial loading
+  const [isInitialLoading, setIsInitialLoading] = useState(true); // New state for initial loading
   const { session } = useAuth();
   const [activeTab, setActiveTab] = useState<'appointment' | 'regular'>('appointment');
 
@@ -84,6 +148,13 @@ const NotificationUI: React.FC = () => {
       fetchRegularNotifications();
       fetchAppointmentNotifications();
       setupSubscriptions();
+      
+      // Set a timeout to ensure minimum loading time for shimmer to be visible
+      const timer = setTimeout(() => {
+        setIsInitialLoading(false);
+      }, 1500);
+      
+      return () => clearTimeout(timer);
     }
   }, [session?.user.id]);
 
@@ -616,6 +687,184 @@ const NotificationUI: React.FC = () => {
   const sections = getSections();
   const hasNotifications = sections.length > 0;
 
+  // Render shimmer for the title and toggle section
+  const renderHeaderShimmer = () => (
+    <>
+      <ShimmerPlaceholder 
+        style={{ width: 200, height: 35, borderRadius: 4, alignSelf: 'center', marginVertical: 20 }}
+        shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        visible={!isInitialLoading}
+      >
+        <Text style={styles.title}>Notifications</Text>
+      </ShimmerPlaceholder>
+      
+      <View style={styles.toggleContainer}>
+        <ShimmerPlaceholder 
+          style={{ 
+            width: 150, 
+            height: 36, 
+            borderRadius: 20, 
+            marginHorizontal: 5 
+          }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          visible={!isInitialLoading}
+        >
+          <TouchableOpacity
+            style={[styles.toggleButton, activeTab === 'appointment' && styles.activeToggle]}
+            onPress={() => setActiveTab('appointment')}
+          >
+            <Text style={[styles.toggleText, activeTab === 'appointment' && styles.activeToggleText]}>
+              Appointment Updates
+            </Text>
+          </TouchableOpacity>
+        </ShimmerPlaceholder>
+        
+        <ShimmerPlaceholder 
+          style={{ 
+            width: 120, 
+            height: 36, 
+            borderRadius: 20, 
+            marginHorizontal: 5 
+          }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          visible={!isInitialLoading}
+        >
+          <TouchableOpacity
+            style={[styles.toggleButton, activeTab === 'regular' && styles.activeToggle]}
+            onPress={() => setActiveTab('regular')}
+          >
+            <Text style={[styles.toggleText, activeTab === 'regular' && styles.activeToggleText]}>
+              Notifications
+            </Text>
+          </TouchableOpacity>
+        </ShimmerPlaceholder>
+      </View>
+    </>
+  );
+  
+  // Render shimmer for section header
+  const renderSectionHeaderShimmer = () => (
+    <View style={styles.sectionHeader}>
+      <ShimmerPlaceholder 
+        style={{ width: 180, height: 24, borderRadius: 4 }}
+        shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+        visible={!isInitialLoading}
+      />
+    </View>
+  );
+  
+  // Render shimmer for regular notification
+  const renderRegularNotificationShimmer = (index: number) => (
+    <View key={`regular-${index}`} style={styles.messageContainer}>
+      <View style={styles.messageHeader}>
+        <View style={styles.senderContainer}>
+          <ShimmerPlaceholder 
+            style={{ width: 20, height: 20, borderRadius: 10, marginRight: 8 }}
+            shimmerColors={['#f0f7ff', '#d1e6ff', '#f0f7ff']}
+            visible={!isInitialLoading}
+          />
+          <ShimmerPlaceholder 
+            style={{ width: 80, height: 18, borderRadius: 4 }}
+            shimmerColors={['#a7f3d0', '#6ee7b7', '#a7f3d0']}
+            visible={!isInitialLoading}
+          />
+        </View>
+        <ShimmerPlaceholder 
+          style={{ width: 60, height: 12, borderRadius: 4 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          visible={!isInitialLoading}
+        />
+      </View>
+      <View style={styles.messageContent}>
+        <ShimmerPlaceholder 
+          style={{ width: '100%', height: 60, borderRadius: 4, marginBottom: 12 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          visible={!isInitialLoading}
+        />
+      </View>
+    </View>
+  );
+  
+  // Render shimmer for appointment notification
+  const renderAppointmentNotificationShimmer = (index: number) => (
+    <View key={`appointment-${index}`} style={styles.messageContainer}>
+      <View style={styles.messageHeader}>
+        <View style={styles.senderContainer}>
+          <ShimmerPlaceholder 
+            style={{ width: 20, height: 20, borderRadius: 10, marginRight: 8 }}
+            shimmerColors={['#f0f7ff', '#d1e6ff', '#f0f7ff']}
+            visible={!isInitialLoading}
+          />
+          <ShimmerPlaceholder 
+            style={{ width: 120, height: 18, borderRadius: 4 }}
+            shimmerColors={['#a7f3d0', '#6ee7b7', '#a7f3d0']}
+            visible={!isInitialLoading}
+          />
+        </View>
+        <ShimmerPlaceholder 
+          style={{ width: 60, height: 12, borderRadius: 4 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          visible={!isInitialLoading}
+        />
+      </View>
+      <View style={styles.messageContent}>
+        <ShimmerPlaceholder 
+          style={{ width: '100%', height: 60, borderRadius: 4, marginBottom: 12 }}
+          shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+          visible={!isInitialLoading}
+        />
+        
+        <ShimmerPlaceholder 
+          style={{ 
+            width: '90%', 
+            height: 40, 
+            borderRadius: 8, 
+            marginTop: 8 
+          }}
+          shimmerColors={['#e0f2fe', '#bae6fd', '#e0f2fe']}
+          visible={!isInitialLoading}
+        />
+        
+        {index % 2 === 0 && (
+          <ShimmerPlaceholder 
+            style={{ 
+              width: 140, 
+              height: 30, 
+              borderRadius: 4, 
+              marginTop: 12,
+              alignSelf: 'flex-start' 
+            }}
+            shimmerColors={['#dcfce7', '#86efac', '#dcfce7']}
+            visible={!isInitialLoading}
+          />
+        )}
+      </View>
+    </View>
+  );
+  
+  // Render shimmer content for notifications list
+  const renderShimmerContent = () => (
+    <View style={styles.messageList}>
+      {renderSectionHeaderShimmer()}
+      {activeTab === 'appointment' 
+        ? Array(3).fill(0).map((_, i) => renderAppointmentNotificationShimmer(i))
+        : Array(3).fill(0).map((_, i) => renderRegularNotificationShimmer(i))
+      }
+    </View>
+  );
+
+  // If in initial loading state, show shimmer UI
+  if (isInitialLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+        <View style={styles.container}>
+          {renderHeaderShimmer()}
+          {renderShimmerContent()}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
       <View style={styles.container}>
@@ -641,12 +890,12 @@ const NotificationUI: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {loading && (
+        {loading && !isInitialLoading && (
           <View style={styles.loadingIndicator}>
             <Text>Loading notifications...</Text>
           </View>
         )}
-        {!hasNotifications ? (
+        {!hasNotifications && !loading ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>No notifications yet</Text>
           </View>
@@ -851,6 +1100,9 @@ const styles = StyleSheet.create({
   },
   activeToggleText: {
     color: '#ffffff',
+  },
+  shimmerContainer: {
+    padding: 15,
   },
 });
 

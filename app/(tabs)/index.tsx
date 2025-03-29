@@ -9,14 +9,15 @@ import {
   TextInput,
   LogBox,
 } from "react-native";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { RadarChart } from "@salmonco/react-native-radar-chart";
 import { LineChart } from "react-native-chart-kit";
 import dayjs from 'dayjs';
 import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
 import LinearGradient from 'expo-linear-gradient';
+import NetInfo from '@react-native-community/netinfo';
 
 // Create shimmer component
 const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient as any);
@@ -45,6 +46,31 @@ interface MoodData {
   intensity: number;
   tracked_at: string;
 }
+
+// Network Modal Component
+const NetworkModal = ({ visible, onRetry }: { visible: boolean; onRetry: () => void }) => (
+  <Modal
+    animationType="slide"
+    transparent={true}
+    visible={visible}
+    onRequestClose={() => {}}
+  >
+    <View style={styles.modalContainer}>
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Network Issue</Text>
+        <Text style={styles.networkModalText}>
+          Seems like your internet connection is slow or unavailable. This may affect app functionality.
+        </Text>
+        <TouchableOpacity
+          style={[styles.modalButton, styles.submitButton, { alignSelf: 'center', marginTop: 20 }]}
+          onPress={onRetry}
+        >
+          <Text style={styles.buttonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </Modal>
+);
 
 const RatingModal = ({ 
   visible, 
@@ -123,19 +149,74 @@ export default function HomeScreen() {
   const [nameLoading, setNameLoading] = useState(true);
   const [moodDataLoading, setMoodDataLoading] = useState(true);
   const [ratingLoading, setRatingLoading] = useState(true);
+  const [isNetworkModalVisible, setIsNetworkModalVisible] = useState(false);
+  const [networkState, setNetworkState] = useState<{isConnected: boolean | null, type: string | null}>({ 
+    isConnected: true, 
+    type: null 
+  });
+
+  // Define getMoodData inside the component
+  const getMoodData = async () => {
+    setMoodDataLoading(true);
+    const weekData = await fetchLatestMoodTrackerData();
+    const monthData = await fetchMonthlyMoodTrackerData();
+    setMoodData(weekData);
+    setMonthlyMoodData(monthData);
+    setMoodDataLoading(false);
+  };
+
+  useEffect(() => {
+    // Subscribe to network state updates
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setNetworkState({
+        isConnected: state.isConnected,
+        type: state.type
+      });
+      
+      // Check for poor connection
+      if (state.isConnected === false) {
+        setIsNetworkModalVisible(true);
+      } else if (state.isConnected && state.type === 'cellular') {
+        // Check for slow cellular connection
+        // @ts-ignore - Handle cellularGeneration which may not be present in all connection types
+        const generation = state.details?.cellularGeneration;
+        if (generation === '2g' || generation === '3g') {
+          setIsNetworkModalVisible(true);
+        } else {
+          setIsNetworkModalVisible(false);
+        }
+      } else {
+        setIsNetworkModalVisible(false);
+      }
+    });
+
+    // Return function will be called when component unmounts
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  const checkNetworkAndRetry = async () => {
+    // Manually fetch current network state
+    const state = await NetInfo.fetch();
+    setNetworkState({
+      isConnected: state.isConnected,
+      type: state.type
+    });
+    
+    if (state.isConnected) {
+      setIsNetworkModalVisible(false);
+      // Reload data
+      getMoodData();
+      getUserName();
+      getUserRating();
+      fetchAppointments();
+    }
+  };
 
   useEffect(() => {
     LogBox.ignoreAllLogs(); // Disable all log notifications
     
-    const getMoodData = async () => {
-      setMoodDataLoading(true);
-      const weekData = await fetchLatestMoodTrackerData();
-      const monthData = await fetchMonthlyMoodTrackerData();
-      setMoodData(weekData);
-      setMonthlyMoodData(monthData);
-      setMoodDataLoading(false);
-    };
-
     getMoodData();
 
     const channel = supabase.channel('custom-all-channel')
@@ -331,105 +412,177 @@ export default function HomeScreen() {
       return acc;
     }, {} as Record<string, { sum: number; count: number }>);
     
-    return Object.entries(moodGroups).map(([mood_type, data]) => ({
-      label: mood_type,
-      value: Math.round((data.sum / data.count) * 10) / 10
-    }));
+    return Object.entries(moodGroups).map(([mood_type, data]) => {
+      // Calculate average intensity and normalize to a 0-5 scale
+      const avgIntensity = data.sum / data.count;
+      // If intensity > 5, normalize it to fit within maxValue of 5
+      const normalizedValue = avgIntensity > 5 ? 5 : avgIntensity;
+      
+      return {
+        label: mood_type,
+        value: Math.round(normalizedValue * 10) / 10,
+        // Store original value for display purposes if needed
+        originalValue: Math.round(avgIntensity * 10) / 10
+      };
+    });
   })() : [];
 
   const getDayAverages = (moodData: MoodData[]) => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const dayAverages = days.reduce((acc, day) => {
-      acc[day] = { sum: 0, count: 0 };
+    const dayData = days.reduce((acc, day) => {
+      acc[day] = { moods: {} as Record<string, { sum: number; count: number }> };
       return acc;
-    }, {} as Record<string, { sum: number; count: number }>);
+    }, {} as Record<string, { moods: Record<string, { sum: number; count: number }> }>);
   
     // If moodData is null or empty, return an array of zeros
     if (!moodData || moodData.length === 0) {
-      return days.map(() => 0);
+      return { values: days.map(() => 0), types: days.map(() => '') };
     }
   
     moodData.forEach(mood => {
       const date = new Date(mood.tracked_at);
       const day = days[date.getDay()];
-      if (dayAverages[day]) {
-        dayAverages[day].sum += mood.intensity;
-        dayAverages[day].count += 1;
+      if (dayData[day]) {
+        if (!dayData[day].moods[mood.mood_type]) {
+          dayData[day].moods[mood.mood_type] = { sum: 0, count: 0 };
+        }
+        dayData[day].moods[mood.mood_type].sum += mood.intensity;
+        dayData[day].moods[mood.mood_type].count += 1;
       }
     });
-  
-    return days.map(day => {
-      const dayData = dayAverages[day];
-      return dayData.count === 0 ? 0 : Math.round((dayData.sum / dayData.count) * 10) / 10;
+    
+    // For each day, find the most frequent mood
+    const values: number[] = [];
+    const types: string[] = [];
+    
+    days.forEach(day => {
+      if (Object.keys(dayData[day].moods).length === 0) {
+        values.push(0);
+        types.push('');
+        return;
+      }
+      
+      let highestAvg = 0;
+      let highestType = '';
+      
+      Object.entries(dayData[day].moods).forEach(([moodType, data]) => {
+        const avg = data.sum / data.count;
+        if (avg > highestAvg) {
+          highestAvg = avg;
+          highestType = moodType;
+        }
+      });
+      
+      values.push(Math.round(highestAvg));
+      types.push(highestType);
     });
+    
+    return { values, types };
   };
 
   const lineChartData = moodData && moodData.length > 0
-  ? {
-      labels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-      datasets: [
-        {
-          data: getDayAverages(moodData),
-          color: (opacity = 1) => `rgba(75, 192, 192, ${opacity})`,
-          strokeWidth: 3,
-        },
-      ],
-    }
+  ? (() => {
+      const { values, types } = getDayAverages(moodData);
+      return {
+        labels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+        datasets: [
+          {
+            data: values,
+            color: (opacity = 1) => `rgba(52, 211, 153, ${opacity})`,
+            strokeWidth: 3,
+          }
+        ],
+        types
+      };
+    })()
   : {
       labels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
       datasets: [
         {
           data: [0, 0, 0, 0, 0, 0, 0],
-          color: (opacity = 1) => `rgba(75, 192, 192, ${opacity})`,
+          color: (opacity = 1) => `rgba(52, 211, 153, ${opacity})`,
           strokeWidth: 3,
-        },
+        }
       ],
+      types: ['', '', '', '', '', '', '']
     };
 
-    const getMonthlyAverages = (monthlyData: MoodData[]) => {
-      // Return array of zeros if no data
-      if (!monthlyData || monthlyData.length === 0) {
-        return [0, 0, 0, 0];
+  const getMonthlyAverages = (monthlyData: MoodData[]) => {
+    // Return array of zeros if no data
+    if (!monthlyData || monthlyData.length === 0) {
+      return { values: [0, 0, 0, 0], types: ['', '', '', ''] };
+    }
+  
+    const weeklyData: { [key: number]: { moods: Record<string, { sum: number; count: number }> } } = {
+      1: { moods: {} },
+      2: { moods: {} },
+      3: { moods: {} },
+      4: { moods: {} }
+    };
+  
+    monthlyData.forEach(mood => {
+      const date = new Date(mood.tracked_at);
+      const week = Math.ceil(date.getDate() / 7);
+      if (week <= 4) {
+        if (!weeklyData[week].moods[mood.mood_type]) {
+          weeklyData[week].moods[mood.mood_type] = { sum: 0, count: 0 };
+        }
+        weeklyData[week].moods[mood.mood_type].sum += mood.intensity;
+        weeklyData[week].moods[mood.mood_type].count += 1;
       }
+    });
     
-      const weeklyAverages: { [key: number]: { sum: number; count: number } } = {
-        1: { sum: 0, count: 0 },
-        2: { sum: 0, count: 0 },
-        3: { sum: 0, count: 0 },
-        4: { sum: 0, count: 0 }
-      };
+    // For each week, find the highest intensity mood
+    const values: number[] = [];
+    const types: string[] = [];
     
-      monthlyData.forEach(mood => {
-        const date = new Date(mood.tracked_at);
-        const week = Math.ceil(date.getDate() / 7);
-        if (week <= 4) {
-          weeklyAverages[week].sum += mood.intensity;
-          weeklyAverages[week].count += 1;
+    [1, 2, 3, 4].forEach(week => {
+      if (Object.keys(weeklyData[week].moods).length === 0) {
+        values.push(0);
+        types.push('');
+        return;
+      }
+      
+      let highestAvg = 0;
+      let highestType = '';
+      
+      Object.entries(weeklyData[week].moods).forEach(([moodType, data]) => {
+        const avg = data.sum / data.count;
+        if (avg > highestAvg) {
+          highestAvg = avg;
+          highestType = moodType;
         }
       });
+      
+      values.push(Math.round(highestAvg));
+      types.push(highestType);
+    });
     
-      return Object.values(weeklyAverages).map(data => 
-        data.count > 0 ? Math.round((data.sum / data.count) * 10) / 10 : 0
-      );
-    };
+    return { values, types };
+  };
 
-    const monthlyChartData = monthlyMoodData && monthlyMoodData.length > 0 
-    ? {
+  const monthlyChartData = monthlyMoodData && monthlyMoodData.length > 0 
+  ? (() => {
+      const { values, types } = getMonthlyAverages(monthlyMoodData);
+      return {
         labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
         datasets: [{
-          data: getMonthlyAverages(monthlyMoodData),
+          data: values,
           color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
           strokeWidth: 2
-        }]
-      } 
-    : {
-        labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-        datasets: [{
-          data: [0, 0, 0, 0],
-          color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
-          strokeWidth: 2
-        }]
+        }],
+        types
       };
+    })()
+  : {
+      labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+      datasets: [{
+        data: [0, 0, 0, 0],
+        color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
+        strokeWidth: 2
+      }],
+      types: ['', '', '', '']
+    };
 
   const getMostIntenseMood = (moodData: MoodData[] | null) => {
     if (!moodData || moodData.length === 0) return null;
@@ -675,6 +828,20 @@ export default function HomeScreen() {
                 dataStrokeWidth={2}
               />
             </View>
+            <View style={styles.legendContainer}>
+              {radarChartData.map((item, index) => (
+                <TouchableOpacity 
+                  key={index}
+                  style={styles.legendItem}
+                  onPress={() => {
+                    alert(`${item.label}: ${item.originalValue}/10${item.originalValue > 5 ? ' (scaled down in chart)' : ''}`);
+                  }}
+                >
+                  <View style={[styles.legendColor, { backgroundColor: getEmotionColor(item.label) }]} />
+                  <Text style={styles.legendText}>{item.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         ) : null
       )}
@@ -697,7 +864,7 @@ export default function HomeScreen() {
                 chartConfig={{
                   backgroundGradientFrom: "#ffffff",
                   backgroundGradientTo: "#ffffff",
-                  decimalPlaces: 1,
+                  decimalPlaces: 0,
                   color: (opacity = 1) => `rgba(52, 211, 153, ${opacity})`,
                   labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                   style: { borderRadius: 16 },
@@ -712,9 +879,18 @@ export default function HomeScreen() {
                 onDataPointClick={(data) => {
                   const label = lineChartData.labels[data.index];
                   const value = data.value;
-                  alert(`${label}, Over all Mood Intensity: ${value}`);
+                  const moodType = lineChartData.types[data.index];
+                  alert(`${label}: ${moodType ? `${moodType} (${value}/10)` : 'No data'}`);
                 }}
               />
+            </View>
+            <View style={styles.legendContainer}>
+              {Array.from(new Set(lineChartData.types)).filter(type => type).map((type, index) => (
+                <View key={index} style={styles.legendItem}>
+                  <View style={[styles.legendColor, { backgroundColor: getEmotionColor(type) }]} />
+                  <Text style={styles.legendText}>{type}</Text>
+                </View>
+              ))}
             </View>
           </View>
         )
@@ -732,7 +908,7 @@ export default function HomeScreen() {
                 chartConfig={{
                   backgroundGradientFrom: "#ffffff",
                   backgroundGradientTo: "#ffffff",
-                  decimalPlaces: 1,
+                  decimalPlaces: 0,
                   color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
                   labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                   style: { borderRadius: 16 },
@@ -747,9 +923,18 @@ export default function HomeScreen() {
                 onDataPointClick={(data) => {
                   const label = monthlyChartData.labels[data.index];
                   const value = data.value;
-                  alert(`${label}, Over all Mood Intensity: ${value}`);
+                  const moodType = monthlyChartData.types[data.index];
+                  alert(`${label}: ${moodType ? `${moodType} (${value}/10)` : 'No data'}`);
                 }}
               />
+            </View>
+            <View style={styles.legendContainer}>
+              {Array.from(new Set(monthlyChartData.types)).filter(type => type).map((type, index) => (
+                <View key={index} style={styles.legendItem}>
+                  <View style={[styles.legendColor, { backgroundColor: getEmotionColor(type) }]} />
+                  <Text style={styles.legendText}>{type}</Text>
+                </View>
+              ))}
             </View>
           </View>
         )
@@ -833,6 +1018,11 @@ export default function HomeScreen() {
         setRating={setRating}
         feedback={feedback}
         setFeedback={setFeedback}
+      />
+
+      <NetworkModal 
+        visible={isNetworkModalVisible}
+        onRetry={checkNetworkAndRetry}
       />
     </ScrollView>
   );
@@ -1195,5 +1385,37 @@ const styles = StyleSheet.create({
       color: 'white',
       textAlign: 'center',
       fontWeight: 'bold',
-    }
+    },
+    legendContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      marginTop: 15,
+      paddingHorizontal: 10,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginHorizontal: 10,
+      marginVertical: 5,
+    },
+    legendColor: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      marginRight: 5,
+    },
+    legendText: {
+      fontSize: 14,
+      color: '#334155',
+      fontFamily: "System",
+    },
+    networkModalText: {
+      fontSize: 16,
+      color: '#475569',
+      textAlign: 'center',
+      lineHeight: 22,
+      marginTop: 10,
+      fontFamily: "System",
+    },
   });

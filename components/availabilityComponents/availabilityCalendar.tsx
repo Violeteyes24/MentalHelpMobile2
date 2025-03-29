@@ -82,7 +82,7 @@ export default function AvailabilityCalendar({
   async function fetchCounselorDetails() {
     const { data, error } = await supabase
       .from("users")
-      .select("name, contact_number, credentials, short_biography")
+      .select("name, contact_number, credentials, short_biography, profile_image_url")
       .eq("user_id", counselorId)
       .single();
 
@@ -162,7 +162,9 @@ export default function AvailabilityCalendar({
           <View style={styles.profileHeader}>
             <Image
               source={{
-                uri: "https://static.vecteezy.com/system/resources/thumbnails/036/594/092/small_2x/man-empty-avatar-photo-placeholder-for-social-networks-resumes-forums-and-dating-sites-male-and-female-no-photo-images-for-unfilled-user-profile-free-vector.jpg",
+                uri: counselorDetails.profile_image_url
+                  ? counselorDetails.profile_image_url
+                  : "https://static.vecteezy.com/system/resources/thumbnails/036/594/092/small_2x/man-empty-avatar-photo-placeholder-for-social-networks-resumes-forums-and-dating-sites-male-and-female-no-photo-images-for-unfilled-user-profile-free-vector.jpg",
               }}
               style={styles.image}
             />
@@ -361,7 +363,7 @@ export default function AvailabilityCalendar({
       
       const { data: appointmentData, error: appointmentError } = await supabase
         .from('appointments')
-        .select('availability_schedules(availability_schedule_id)')
+        .select('availability_schedule_id')
         .eq('counselor_id', counselorId)
         .neq('status', 'cancelled');
         
@@ -371,8 +373,8 @@ export default function AvailabilityCalendar({
       
       if (appointmentData && appointmentData.length > 0) {
         const bookedIds = appointmentData
-          .map(appt => appt.availability_schedules?.availability_schedule_id)
-          .filter(id => id);
+          .map(appt => appt.availability_schedule_id)
+          .filter((id): id is string => !!id);
           
         slots.forEach(slot => {
           if (bookedIds.includes(slot.id)) {
