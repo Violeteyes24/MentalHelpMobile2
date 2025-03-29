@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,9 +10,9 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Pressable,
 } from "react-native";
-import Slider from "@react-native-community/slider";
-import PieChart from "react-native-pie-chart";
+import PieChart from "react-native-pie-chart/v3api";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
@@ -46,27 +46,72 @@ const EmotionAnalysis: React.FC = () => {
   }, []);
 
   const emotionColors: { [key: string]: string } = {
-    Happy: "#FFFF00",
-    Afraid: "#0000FF",
-    Angry: "#FF0000",
-    Stressed: "#008000",
-    Confused: "#A52A2A",
-    Disappointed: "#FFA500",
+    Happy: "#FFC107", // Yellow (more vibrant)
+    Afraid: "#2196F3", // Blue (more vibrant)
+    Angry: "#F44336", // Red (more vibrant)
+    Stressed: "#4CAF50", // Green (more vibrant)
+    Confused: "#795548", // Brown (more vibrant)
+    Disappointed: "#FF9800", // Orange (more vibrant)
   };
 
-  const handleSliderChange = (emotion: string, value: number) => {
-    setEmotions((prevState) => ({
-      ...prevState,
-      [emotion]: value,
+  // Set emotion value without any jitter
+  const setEmotionValue = useCallback((emotion: string, value: number) => {
+    const boundedValue = Math.min(10, Math.max(1, value));
+    setEmotions(prev => ({
+      ...prev,
+      [emotion]: boundedValue
     }));
-  };
+  }, []);
+
+  // Increment emotion value
+  const incrementEmotion = useCallback((emotion: string) => {
+    setEmotions(prev => {
+      const currentValue = prev[emotion];
+      return {
+        ...prev,
+        [emotion]: Math.min(10, currentValue + 1)
+      };
+    });
+  }, []);
+
+  // Decrement emotion value
+  const decrementEmotion = useCallback((emotion: string) => {
+    setEmotions(prev => {
+      const currentValue = prev[emotion];
+      return {
+        ...prev,
+        [emotion]: Math.max(1, currentValue - 1)
+      };
+    });
+  }, []);
 
   const widthAndHeight = 250;
 
-  const series = Object.entries(emotions).map(([emotion, value]) => ({
-    value: Math.min(10, Math.max(1, Math.round(value))),
-    color: emotionColors[emotion],
-  }));
+  // Calculate the total value of all emotions for percentage calculation
+  const totalEmotionValue = useMemo(() => 
+    Object.values(emotions).reduce((sum, value) => sum + value, 0),
+    [emotions]
+  );
+
+  // Create series data with percentages for the pie chart
+  const series = useMemo(() => 
+    Object.entries(emotions).map(([emotion, value]) => ({
+      value: Math.min(10, Math.max(1, value)),
+      color: emotionColors[emotion],
+      name: emotion,
+      percentage: Math.round((value / totalEmotionValue) * 100)
+    })), 
+    [emotions, emotionColors, totalEmotionValue]
+  );
+
+  // Prepare the series data with proper structure for the PieChart
+  const pieChartSeries = useMemo(() => 
+    series.map(item => item.value),
+  [series]);
+
+  const pieChartColors = useMemo(() => 
+    series.map(item => item.color),
+  [series]);
 
   async function insertMoodTrackerData() {
     try {
@@ -75,7 +120,7 @@ const EmotionAnalysis: React.FC = () => {
       const insertData = Object.entries(emotions).map(
         ([mood_type, intensity]) => ({
           mood_type,
-          intensity: Math.min(10, Math.max(1, Math.round(intensity))),
+          intensity: Math.min(10, Math.max(1, intensity)),
           user_id: session?.user.id,
         })
       );
@@ -108,7 +153,7 @@ const EmotionAnalysis: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.title}>Mood Tracker</Text>
-        <Text style={styles.subtitle}>Swipe the slider for each emotion</Text>
+        <Text style={styles.subtitle}>Set the value for each emotion</Text>
 
         {/* Shimmer for pie chart */}
         <View style={styles.pieChartContainer}>
@@ -128,12 +173,12 @@ const EmotionAnalysis: React.FC = () => {
           {Array(6).fill(0).map((_, index) => (
             <View key={index} style={styles.sliderContainer}>
               <ShimmerPlaceholder
-                style={{ width: 80, height: 20, marginRight: 10 }}
+                style={{ width: 80, height: 20, marginBottom: 10 }}
                 shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
                 visible={!isInitialLoading}
               />
               <ShimmerPlaceholder
-                style={{ flex: 1, height: 20, borderRadius: 10 }}
+                style={{ width: '100%', height: 40, borderRadius: 10 }}
                 shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
                 visible={!isInitialLoading}
               />
@@ -161,32 +206,86 @@ const EmotionAnalysis: React.FC = () => {
     return renderShimmerView();
   }
 
+  // Create a numeric display with + and - buttons
+  const renderEmotionControl = (emotion: string, value: number) => {
+    return (
+      <View key={emotion} style={styles.sliderContainer}>
+        <Text style={styles.emotionLabel}>{emotion}</Text>
+        <View style={styles.controlContainer}>
+          <TouchableOpacity 
+            style={[styles.controlButton, { backgroundColor: emotionColors[emotion] + '40' }]}
+            onPress={() => decrementEmotion(emotion)}
+            disabled={value <= 1}
+          >
+            <Text style={styles.controlButtonText}>-</Text>
+          </TouchableOpacity>
+          
+          {/* Bar indicator */}
+          <View style={styles.barContainer}>
+            {Array.from({ length: 10 }).map((_, index) => (
+              <Pressable
+                key={index}
+                style={[
+                  styles.barSegment,
+                  { 
+                    backgroundColor: index < value ? emotionColors[emotion] : '#e0e0e0',
+                    opacity: index < value ? 1 : 0.5
+                  }
+                ]}
+                onPress={() => setEmotionValue(emotion, index + 1)}
+              />
+            ))}
+          </View>
+          
+          <TouchableOpacity 
+            style={[styles.controlButton, { backgroundColor: emotionColors[emotion] + '40' }]}
+            onPress={() => incrementEmotion(emotion)}
+            disabled={value >= 10}
+          >
+            <Text style={styles.controlButtonText}>+</Text>
+          </TouchableOpacity>
+          
+          <Text style={[styles.valueText, { color: emotionColors[emotion] }]}>
+            {value}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  // Create a color swatch with label and percentage
+  const renderColorSwatch = (item: { color: string, name: string, percentage: number }) => (
+    <View key={item.name} style={styles.swatchContainer}>
+      <View style={[styles.colorSwatch, { backgroundColor: item.color }]} />
+      <Text style={styles.swatchLabel}>{item.name}</Text>
+      <Text style={styles.swatchPercentage}>{item.percentage}%</Text>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.title}>Mood Tracker</Text>
-        <Text style={styles.subtitle}>Swipe the slider for each emotion</Text>
+        <Text style={styles.subtitle}>Set the value for each emotion</Text>
 
-        <View style={styles.pieChartContainer}>
-          <PieChart widthAndHeight={widthAndHeight} series={series} />
+        <View style={styles.pieChartCard}>
+          <View style={styles.pieChartContainer}>
+            <PieChart
+              widthAndHeight={widthAndHeight}
+              series={pieChartSeries}
+              sliceColor={pieChartColors}
+              coverRadius={0.45}
+              coverFill={'#FFF'}
+            />
+          </View>
           
+          <View style={styles.legendContainer}>
+            {series.map(renderColorSwatch)}
+          </View>
         </View>
+
         <View style={styles.card}>
-          {Object.keys(emotions).map((emotion) => (
-            <View key={emotion} style={styles.sliderContainer}>
-              <Text style={styles.emotionLabel}>{emotion}:</Text>
-              <Slider
-                style={styles.slider}
-                minimumValue={1}
-                maximumValue={10}
-                value={emotions[emotion]}
-                onValueChange={(value) => handleSliderChange(emotion, value)}
-                thumbTintColor={emotionColors[emotion]}
-                minimumTrackTintColor={emotionColors[emotion]}
-                maximumTrackTintColor="#000000"
-              />
-            </View>
-          ))}
+          {Object.entries(emotions).map(([emotion, value]) => renderEmotionControl(emotion, value))}
           <TouchableOpacity
             onPress={insertMoodTrackerData}
             style={styles.button}
@@ -211,7 +310,7 @@ const EmotionAnalysis: React.FC = () => {
             <Text style={styles.modalTitle}>Mood Tracker Results</Text>
             {Object.entries(emotions).map(([emotion, value]) => (
               <Text key={emotion} style={styles.modalText}>
-                {emotion}: {Math.min(10, Math.max(1, Math.round(value)))}
+                {emotion}: {value}
               </Text>
             ))}
             <TouchableOpacity
@@ -231,6 +330,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
+    backgroundColor: "#f8f9fa",
   },
   scrollContent: {
     paddingBottom: 20,
@@ -239,45 +339,84 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     textAlign: "center",
+    marginTop: 10,
+    color: "#333",
   },
   subtitle: {
     fontSize: 18,
     textAlign: "center",
     marginVertical: 16,
+    color: "#666",
   },
   card: {
     backgroundColor: "#ffffff",
     borderRadius: 15,
-    padding: 16,
+    padding: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
-    marginTop: 15
+    marginTop: 15,
+    marginHorizontal: 5,
   },
   sliderContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 10,
+    marginVertical: 12,
   },
   emotionLabel: {
-    width: 90,
-    fontSize: 14,
+    fontSize: 16,
+    fontWeight: "500",
+    marginBottom: 8,
+    color: "#333",
   },
-  slider: {
-    width: Dimensions.get("window").width * 0.7, // changed: slider now adjusts to device width
+  controlContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    height: 40,
+  },
+  controlButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  controlButtonText: {
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+  barContainer: {
+    flex: 1,
+    height: 30,
+    flexDirection: "row",
+    marginHorizontal: 10,
+    borderRadius: 15,
+    overflow: "hidden",
+  },
+  barSegment: {
+    flex: 1,
+    height: "100%",
+    marginHorizontal: 1,
+  },
+  valueText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    width: 30,
+    textAlign: "center",
+    marginLeft: 5,
   },
   pieChartContainer: {
     alignItems: "center",
-    marginTop: 16,
+    justifyContent: "center",
+    padding: 10,
   },
   button: {
     backgroundColor: "#34d399",
     borderRadius: 25,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 20,
-    marginTop: 16,
+    marginTop: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -288,6 +427,7 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
     textAlign: "center",
+    fontSize: 16,
   },
   modalBackground: {
     flex: 1,
@@ -298,28 +438,79 @@ const styles = StyleSheet.create({
   modalContainer: {
     width: "80%",
     backgroundColor: "white",
-    borderRadius: 10,
-    padding: 20,
+    borderRadius: 15,
+    padding: 25,
     alignItems: "center",
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "bold",
-    marginBottom: 10,
+    marginBottom: 15,
+    color: "#333",
   },
   modalText: {
     fontSize: 16,
-    marginVertical: 5,
+    marginVertical: 6,
+    color: "#444",
   },
   closeButton: {
-    marginTop: 20,
+    marginTop: 25,
     backgroundColor: "#34d399",
-    borderRadius: 5,
-    padding: 10,
+    borderRadius: 25,
+    paddingVertical: 10,
+    paddingHorizontal: 25,
+    width: "80%",
   },
   closeButtonText: {
     color: "white",
     fontWeight: "bold",
+    textAlign: "center",
+    fontSize: 16,
+  },
+  pieChartCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 15,
+    padding: 20,
+    marginHorizontal: 5,
+    marginTop: 10,
+    marginBottom: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  legendContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    marginTop: 20,
+  },
+  swatchContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginVertical: 8,
+    width: '30%',
+  },
+  colorSwatch: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginBottom: 5,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  swatchLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+    color: '#555',
+  },
+  swatchPercentage: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 2,
   },
 });
 

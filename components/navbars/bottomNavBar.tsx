@@ -1,6 +1,6 @@
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Platform } from 'react-native';
 import { Icon } from '@rneui/themed';
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // components/BottomNavBar.tsx
@@ -10,7 +10,7 @@ interface BottomNavBarProps {
     navigateToChatbot: () => void;
     navigateToAppointment: () => void;
     drawerOpen: boolean;
-    activeTab?: 'home' | 'mood' | 'chat' | 'appointment';
+    activeTab: 'home' | 'mood' | 'chat' | 'appointment';
 }
 
 const BottomNavBar = ({ 
@@ -19,8 +19,27 @@ const BottomNavBar = ({
     navigateToChatbot, 
     navigateToAppointment, 
     drawerOpen,
-    activeTab = 'home'
+    activeTab
 }: BottomNavBarProps) => {
+    // Animation refs for the active indicator
+    const scaleAnim = useRef(new Animated.Value(1)).current;
+    
+    // Animate when activeTab changes
+    useEffect(() => {
+        Animated.sequence([
+            Animated.timing(scaleAnim, {
+                toValue: 1.2,
+                duration: 150,
+                useNativeDriver: true
+            }),
+            Animated.timing(scaleAnim, {
+                toValue: 1,
+                duration: 150,
+                useNativeDriver: true
+            })
+        ]).start();
+    }, [activeTab]);
+
     // Define the nav items for cleaner rendering
     const navItems = useMemo(() => [
         {
@@ -73,9 +92,10 @@ const BottomNavBar = ({
                         onPress={item.onPress}
                         activeOpacity={0.7}
                     >
-                        <View style={[
+                        <Animated.View style={[
                             styles.iconContainer,
-                            item.isActive && styles.activeIconContainer
+                            item.isActive && styles.activeIconContainer,
+                            item.isActive && { transform: [{ scale: scaleAnim }] }
                         ]}>
                             <Icon 
                                 name={item.icon} 
@@ -83,14 +103,18 @@ const BottomNavBar = ({
                                 color={item.isActive ? '#10b981' : '#fff'} 
                                 size={22} 
                             />
-                        </View>
+                        </Animated.View>
                         <Text style={[
                             styles.navText,
                             item.isActive && styles.activeNavText
                         ]}>
                             {item.label}
                         </Text>
-                        {item.isActive && <View style={styles.activeIndicator} />}
+                        {item.isActive && (
+                            <View style={styles.activeIndicatorContainer}>
+                                <View style={styles.activeIndicator} />
+                            </View>
+                        )}
                     </TouchableOpacity>
                 ))}
             </LinearGradient>
@@ -106,15 +130,16 @@ const styles = StyleSheet.create({
         right: 0,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 5,
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+        elevation: 8,
     },
     gradient: {
         flexDirection: 'row',
         justifyContent: 'space-evenly',
         alignItems: 'center',
-        height: 70,
+        height: Platform.OS === 'ios' ? 84 : 70, // Add extra height for iOS
+        paddingBottom: Platform.OS === 'ios' ? 20 : 0, // Add padding for iOS devices with home indicator
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
     },
@@ -128,9 +153,9 @@ const styles = StyleSheet.create({
     iconContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        height: 36,
-        width: 36,
-        borderRadius: 18,
+        height: 40,
+        width: 40,
+        borderRadius: 20,
         backgroundColor: 'rgba(255, 255, 255, 0.2)',
         marginBottom: 4,
     },
@@ -138,17 +163,22 @@ const styles = StyleSheet.create({
         backgroundColor: '#ffffff',
         shadowColor: "#10b981",
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 3,
-        elevation: 2,
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    activeIndicatorContainer: {
+        alignItems: 'center',
+        position: 'absolute',
+        bottom: 0,
+        width: '100%',
     },
     activeIndicator: {
-        position: 'absolute',
-        bottom: 3,
-        width: 5,
-        height: 5,
-        borderRadius: 2.5,
+        width: 6,
+        height: 6,
+        borderRadius: 3,
         backgroundColor: '#ffffff',
+        marginTop: 3,
     },
     navText: {
         color: 'rgba(255, 255, 255, 0.9)',

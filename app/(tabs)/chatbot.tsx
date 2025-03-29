@@ -669,7 +669,7 @@ Your response:`;
       {isLoading ? renderHeaderShimmer() : (
         <>
           <View style={styles.chatHeader}>
-            <Text style={styles.title}>MentalHelp Chatbot</Text>
+            <Text style={styles.title}>Talk to Rezelle</Text>
           </View>
           <Text style={styles.subtitle}>Your personal wellness companion</Text>
           

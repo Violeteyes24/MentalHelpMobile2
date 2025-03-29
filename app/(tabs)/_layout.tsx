@@ -1,8 +1,9 @@
 // app/(tabs)/_layout.tsx
+import React from 'react';
 import { Tabs } from 'expo-router';
 import { useState, useCallback, useEffect } from 'react';
 import { Animated, Dimensions } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import Drawer from '../../components/navbars/drawer';
 import BottomNavBar from '../../components/navbars/bottomNavBar';
 import { useAuth } from '../../context/AuthContext';
@@ -11,9 +12,20 @@ const { width } = Dimensions.get('window');
 
 export default function TabLayout() {
   const router = useRouter();
+  const pathname = usePathname();
   const { session } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const slideAnim = useState(new Animated.Value(width))[0];
+
+  // Determine active tab based on current path
+  const getActiveTab = useCallback(() => {
+    if (pathname.includes('/moodtracker')) return 'mood';
+    if (pathname.includes('/chatbot')) return 'chat';
+    if (pathname.includes('/counselorList')) return 'appointment';
+    return 'home'; // default
+  }, [pathname]);
+
+  const activeTab = getActiveTab();
 
   const toggleDrawer = useCallback(() => {
     const toValue = drawerOpen ? width : width * 0.4;
@@ -133,6 +145,7 @@ export default function TabLayout() {
         navigateToMoodTracker={() => navigate("/(tabs)/moodtracker")}
         navigateToChatbot={() => navigate("/(tabs)/chatbot")}
         navigateToAppointment={() => navigate("/(tabs)/counselorList")}
+        activeTab={activeTab}
       />
     </>
   );

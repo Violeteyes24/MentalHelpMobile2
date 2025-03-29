@@ -1,3 +1,4 @@
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Pressable } from 'react-native';
 import { Icon } from '@rneui/themed';
 import { supabase } from '../../lib/supabase';
