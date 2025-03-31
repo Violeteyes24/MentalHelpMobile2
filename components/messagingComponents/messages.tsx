@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Image,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { supabase } from "../../lib/supabase";
@@ -17,6 +18,21 @@ import LinearGradient from 'expo-linear-gradient';
 
 // Create shimmer component with a workaround for Expo's LinearGradient
 const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient as any);
+
+// Utility function for consistent Manila time formatting
+function formatManilaTime(timestamp: string) {
+  if (!timestamp) return '';
+  
+  // Force date parsing in UTC to avoid local timezone issues
+  const date = new Date(timestamp);
+  
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'Asia/Manila',
+    hour12: true
+  });
+}
 
 interface Message {
   message_id: string;
@@ -43,11 +59,18 @@ export default function Messages() {
   const [userName, setUserName] = useState<string | null>(null);
   const [recipientId, setRecipientId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true); // Add loading state
+  const [refreshing, setRefreshing] = useState(false); // Add refreshing state
   // Create ref for FlatList to handle scrolling
   const flatListRef = useRef<FlatList>(null);
 
   console.log("Current user ID:", session?.user.id);
   console.log("Conversation ID: ", id);
+
+  // Log current time in system timezone and in Asia/Manila timezone
+  const currentSystemTime = new Date();
+  console.log("System current time:", currentSystemTime.toString());
+  console.log("System time formatted:", currentSystemTime.toLocaleTimeString());
+  console.log("Asia/Manila time:", new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Manila' }));
 
   useEffect(() => {
     setIsLoading(true); // Set loading to true when fetching starts
@@ -313,11 +336,18 @@ export default function Messages() {
     }
 
     try {
+      // Debug timestamp information
+      const now = new Date();
+      const nowISOString = now.toISOString();
+      console.log('RN timestamp when sending:', nowISOString);
+      console.log('RN local time when sending:', now.toLocaleTimeString());
+      console.log('RN Manila time when sending:', formatManilaTime(nowISOString));
+      
       // Insert new message into the database
       const { error, data } = await supabase.from("messages").insert([
         {
           sender_id: session?.user.id,
-          sent_at: new Date().toISOString(),
+          sent_at: nowISOString,
           received_at: null,
           is_read: false,
           conversation_id: id, // Using the current conversation ID for the new message
@@ -353,7 +383,9 @@ export default function Messages() {
       {item.sender_id === session?.user.id ? (
         <View style={styles.userMessageContainer}>
           <Text style={styles.userMessage}>{item.message_content}</Text>
-          <Text style={styles.timestamp}>{new Date(item.sent_at).toLocaleTimeString()}</Text>
+          <Text style={styles.timestamp}>
+            {formatManilaTime(item.sent_at)}
+          </Text>
         </View>
       ) : (
         <View style={styles.messageRow}>
@@ -367,7 +399,7 @@ export default function Messages() {
             <Text style={styles.senderName}>{item.sender_name}</Text>
             <Text style={styles.botMessage}>{item.message_content}</Text>
             <Text style={[styles.timestamp, styles.botTimestamp]}>
-              {new Date(item.sent_at).toLocaleTimeString()}
+              {formatManilaTime(item.sent_at)}
             </Text>
           </View>
         </View>
@@ -455,6 +487,22 @@ export default function Messages() {
     (m) => m.sender_id !== session?.user.id
   )?.sender_profile_image;
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      if (recipientId) {
+        await fetchAllMessagesWithRecipient(recipientId);
+      } else {
+        await fetchMessages();
+      }
+      await fetchPredefinedOptions();
+    } catch (error) {
+      console.error("Error during refresh:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {isLoading ? (
@@ -507,6 +555,14 @@ export default function Messages() {
             ListEmptyComponent={renderEmptyComponent}
             onContentSizeChange={scrollToBottom} // Scroll to bottom when content size changes
             onLayout={scrollToBottom} // Scroll to bottom on initial layout
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={["#4a90e2"]}
+                tintColor={"#4a90e2"}
+              />
+            }
           />
 
           {/* Predefined Messages Carousel */}
