@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   Image,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  RefreshControl
 } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { createClient } from "@supabase/supabase-js";
@@ -33,6 +34,7 @@ export default function AvailabilityCalendar({
 }) {
   const [availability, setAvailability] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState("");
+  const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().split('T')[0]);
   const [counselorDetails, setCounselorDetails] = useState<any>(null);
   const { session } = useAuth();
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -42,6 +44,7 @@ export default function AvailabilityCalendar({
   const [timeSlots, setTimeSlots] = useState<any[]>([]);
   const [markedDates, setMarkedDates] = useState<any>({});
   const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (selectedDate) {
@@ -139,7 +142,7 @@ export default function AvailabilityCalendar({
             console.log("Appointment created successfully:", appointmentData);
             Alert.alert(
               "Success",
-              `You successfully booked the slot: ${slot.start_time} - ${slot.end_time}`
+              `You successfully booked the slot: ${convertTo12Hour(slot.start_time)} - ${convertTo12Hour(slot.end_time)}`
             );
             fetchAvailability();
           }
@@ -153,6 +156,16 @@ export default function AvailabilityCalendar({
     const ampm = hours >= 12 ? "PM" : "AM";
     const hour12 = hours % 12 || 12;
     return `${hour12}:${minutes.toString().padStart(2, "0")} ${ampm}`;
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchCounselorDetails();
+    await fetchAvailableDates();
+    if (selectedDate) {
+      await fetchAvailability();
+    }
+    setRefreshing(false);
   };
 
   const renderHeader = () => (
@@ -194,6 +207,7 @@ export default function AvailabilityCalendar({
               marked: true,
               selectedColor: "#4a90e2",
             },
+            ...markedDates
           }}
           theme={{
             selectedDayBackgroundColor: '#4a90e2',
@@ -202,6 +216,14 @@ export default function AvailabilityCalendar({
             dotColor: '#4a90e2',
             textDayFontWeight: '500',
             textMonthFontWeight: 'bold',
+          }}
+          current={currentMonth}
+          minDate={new Date().toISOString().split('T')[0]}
+          enableSwipeMonths={true}
+          onMonthChange={(month: {dateString: string}) => {
+            console.log("Month changed to:", month.dateString);
+            setCurrentMonth(month.dateString);
+            fetchAvailableDates();
           }}
         />
       </View>
@@ -495,6 +517,14 @@ export default function AvailabilityCalendar({
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={selectedDate ? renderEmptyList : null}
         contentContainerStyle={styles.container}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#4a90e2"]}
+            tintColor={"#4a90e2"}
+          />
+        }
       />
       <ReasonModal
         visible={isModalVisible}
