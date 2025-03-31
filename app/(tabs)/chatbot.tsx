@@ -90,11 +90,12 @@ const groupChatByDate = (chatLog: ChatbotView[]): Record<string, ChatbotView[]> 
 
 // Add type for mood data
 interface MoodEntry {
-  mood: string;
+  mood_id: string;
+  mood_type: string;
   tracked_at: string;
   user_id: string;
-  intensity?: number; // Add intensity field
-  // Add other mood properties as needed
+  intensity: number;
+  note: string | null;
 }
 
 // Add type for user data
@@ -248,7 +249,7 @@ const Chatbot = () => {
     if (error) {
       console.error("Error fetching mood data:", error);
     } else {
-      // console.log("Fetched mood data:", JSON.stringify(data, null, 2));
+      console.log("Fetched mood data:", JSON.stringify(data, null, 2));
       setMoodData(data as MoodEntry[]);
     }
   }
@@ -435,41 +436,34 @@ const Chatbot = () => {
     // Extract highest mood from moodData
     let highestMood = "confused"; // Default mood
     let highestMoodIntensity = 0; // Default intensity
+    let secondHighestMood = "confused"; // Default mood for second highest
+    let secondHighestIntensity = 0; // Default intensity for second highest
     
     if (moodData && moodData.length > 0) {
-      // Count frequency of each mood
-      const moodCounts: Record<string, number> = {};
-      const validMoods = ["confused", "stressed", "happy", "disappointed", "afraid", "angry"];
-      
-      // Track intensity for each mood type
-      const moodIntensities: Record<string, number> = {};
-      
+      console.log("Processing mood data for highest intensity:", JSON.stringify(moodData, null, 2));
+      // Find the mood with highest intensity from recent entries
       moodData.forEach((entry: MoodEntry) => {
-        const mood = entry.mood?.toLowerCase();
-        if (mood && validMoods.includes(mood)) {
-          moodCounts[mood] = (moodCounts[mood] || 0) + 1;
+        const intensity = entry.intensity;
+        console.log(`Checking mood: ${entry.mood_type}, intensity: ${intensity}, current highest: ${highestMoodIntensity}`);
+        
+        if (intensity > highestMoodIntensity) {
+          // Current highest becomes second highest
+          secondHighestIntensity = highestMoodIntensity;
+          secondHighestMood = highestMood;
           
-          // Update intensity tracking - store the highest intensity for each mood type
-          const intensity = entry.intensity || 0;
-          if (!moodIntensities[mood] || intensity > moodIntensities[mood]) {
-            moodIntensities[mood] = intensity;
-          }
-          
-          // Track overall highest intensity
-          if (intensity > highestMoodIntensity) {
-            highestMoodIntensity = intensity;
-          }
+          // Update highest
+          highestMoodIntensity = intensity;
+          highestMood = entry.mood_type.toLowerCase();
+          console.log(`New highest mood: ${highestMood}, intensity: ${highestMoodIntensity}`);
+        } else if (intensity > secondHighestIntensity && intensity !== highestMoodIntensity) {
+          // Update second highest
+          secondHighestIntensity = intensity;
+          secondHighestMood = entry.mood_type.toLowerCase();
+          console.log(`New second highest mood: ${secondHighestMood}, intensity: ${secondHighestIntensity}`);
         }
       });
-      
-      // Find most frequent mood
-      let maxCount = 0;
-      for (const [mood, count] of Object.entries(moodCounts)) {
-        if (count > maxCount) {
-          maxCount = count;
-          highestMood = mood;
-        }
-      }
+      console.log(`Final highest mood: ${highestMood}, intensity: ${highestMoodIntensity}`);
+      console.log(`Final second highest mood: ${secondHighestMood}, intensity: ${secondHighestIntensity}`);
     }
     
     // Extract user profile details
@@ -479,7 +473,11 @@ const Chatbot = () => {
       program: userData?.program || "",
       gender: userData?.gender || "",
       hobbies: userData?.hobbies || "",
-      achievements: userData?.achievements || ""
+      achievements: userData?.achievements || "",
+      primaryMood: highestMood,
+      primaryMoodIntensity: highestMoodIntensity,
+      secondaryMood: secondHighestMood,
+      secondaryMoodIntensity: secondHighestIntensity
     };
   
     const prompt = `You are a mental health chat bot designed to provide personalized, empathetic support. Create a response in the style of this example:
@@ -493,8 +491,10 @@ User Profile:
 - Gender: ${userProfile.gender}
 - Hobbies: ${userProfile.hobbies}
 - Achievements: ${userProfile.achievements}
-- Current Predominant Mood: ${highestMood}
-- Highest Mood Intensity (scale 1-10): ${highestMoodIntensity}
+- Primary Mood: ${userProfile.primaryMood}
+- Primary Mood Intensity (scale 1-10): ${userProfile.primaryMoodIntensity}
+- Secondary Mood: ${userProfile.secondaryMood}
+- Secondary Mood Intensity (scale 1-10): ${userProfile.secondaryMoodIntensity}
 
 Previous Conversation Context and Themes:
 ${conversationContext || 'No previous context available'}
@@ -503,8 +503,8 @@ Recent Mood History (Last 6 entries): ${JSON.stringify(moodData)}
 User's Current Question: ${question}
 
 Guidelines for your response:
-1. Address the user by name and acknowledge their current mood state
-2. Consider the intensity level of their mood in your response - higher intensity requires more validation and support
+1. Address the user by name and acknowledge their current mood state, focusing primarily on their primary mood but also acknowledging the secondary mood if it's relevant
+2. Consider the intensity level of their primary mood in your response - higher intensity requires more validation and support
 3. Reference their personal details (hobbies, achievements, etc.) to make the response feel personalized
 4. Use empathetic language that validates their feelings
 5. Provide supportive suggestions related to their interests
