@@ -94,7 +94,7 @@ export default function Account() {
         setGender(data.gender || "");
         setDepartment(data.department || "");
         setProgram(data.program || "");
-        setProgramYearLevel(data.program_year_level || "");
+        setProgramYearLevel(data.program_year_level ? String(data.program_year_level) : "");
         setShortBiography(data.short_biography || "");
         setCredentials(data.credentials || "");
         
@@ -237,6 +237,9 @@ export default function Account() {
         }
       }
 
+      // Convert program_year_level to number if it's a valid number
+      const yearLevelNumber = program_year_level ? parseInt(program_year_level, 10) : null;
+
       // Prepare update object
       const updates: {
         user_id: string;
@@ -248,7 +251,7 @@ export default function Account() {
         gender: string;
         department: string;
         program: string;
-        program_year_level: string;
+        program_year_level: number | null;
         short_biography: string;
         credentials: string;
         profile_image_url: string | null;
@@ -263,7 +266,7 @@ export default function Account() {
         gender,
         department,
         program,
-        program_year_level,
+        program_year_level: yearLevelNumber,
         short_biography,
         credentials,
         profile_image_url: imageUrl,
