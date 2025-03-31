@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, SectionList } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, SectionList, ScrollView } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 import { useAuth } from "../../context/AuthContext";
 
@@ -142,6 +142,8 @@ const NotificationUI: React.FC = () => {
   const [isInitialLoading, setIsInitialLoading] = useState(true); // New state for initial loading
   const { session } = useAuth();
   const [activeTab, setActiveTab] = useState<'appointment' | 'regular'>('appointment');
+  // New state for appointment notification filters
+  const [appointmentFilter, setAppointmentFilter] = useState<'all' | 'rescheduled' | 'cancelled' | 'group_added'>('all');
 
   useEffect(() => {
     if (session?.user.id) {
@@ -667,11 +669,20 @@ const NotificationUI: React.FC = () => {
     }
   };
 
+  // Modify getSections function to filter appointment notifications
   const getSections = (): NotificationSection[] => {
     if (activeTab === 'appointment' && appointmentNotifications.length > 0) {
+      const filteredNotifications = appointmentFilter === 'all' 
+        ? appointmentNotifications
+        : appointmentNotifications.filter(notification => notification.type === appointmentFilter);
+        
+      if (filteredNotifications.length === 0) {
+        return [];
+      }
+      
       return [{
         title: 'Appointment Updates',
-        data: appointmentNotifications,
+        data: filteredNotifications,
         type: 'appointment'
       }];
     } else if (activeTab === 'regular' && regularNotifications.length > 0) {
@@ -686,7 +697,7 @@ const NotificationUI: React.FC = () => {
 
   const sections = getSections();
   const hasNotifications = sections.length > 0;
-
+  
   // Render shimmer for the title and toggle section
   const renderHeaderShimmer = () => (
     <>
@@ -890,6 +901,61 @@ const NotificationUI: React.FC = () => {
           </TouchableOpacity>
         </View>
 
+        {/* Add appointment type filters - only show when appointment tab is active */}
+        {activeTab === 'appointment' && (
+          <View style={styles.typeFilterContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeFilterScroll}>
+              <TouchableOpacity
+                style={[
+                  styles.typeFilterButton,
+                  appointmentFilter === 'all' && styles.typeFilterActive
+                ]}
+                onPress={() => setAppointmentFilter('all')}
+              >
+                <Text style={[styles.typeFilterText, appointmentFilter === 'all' && styles.typeFilterTextActive]}>
+                  🔔 All
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.typeFilterButton,
+                  appointmentFilter === 'rescheduled' && styles.typeFilterActive
+                ]}
+                onPress={() => setAppointmentFilter('rescheduled')}
+              >
+                <Text style={[styles.typeFilterText, appointmentFilter === 'rescheduled' && styles.typeFilterTextActive]}>
+                  🗓️ Rescheduled
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.typeFilterButton,
+                  appointmentFilter === 'cancelled' && styles.typeFilterActive
+                ]}
+                onPress={() => setAppointmentFilter('cancelled')}
+              >
+                <Text style={[styles.typeFilterText, appointmentFilter === 'cancelled' && styles.typeFilterTextActive]}>
+                  ❌ Cancelled
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.typeFilterButton,
+                  appointmentFilter === 'group_added' && styles.typeFilterActive
+                ]}
+                onPress={() => setAppointmentFilter('group_added')}
+              >
+                <Text style={[styles.typeFilterText, appointmentFilter === 'group_added' && styles.typeFilterTextActive]}>
+                  👥 Group
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        )}
+
         {loading && !isInitialLoading && (
           <View style={styles.loadingIndicator}>
             <Text>Loading notifications...</Text>
@@ -897,7 +963,12 @@ const NotificationUI: React.FC = () => {
         )}
         {!hasNotifications && !loading ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>No notifications yet</Text>
+            <Text style={styles.emptyStateText}>
+              {activeTab === 'appointment' && appointmentFilter !== 'all' 
+                ? `No ${appointmentFilter.replace('_', ' ')} notifications`
+                : 'No notifications yet'
+              }
+            </Text>
           </View>
         ) : (
           <SectionList
@@ -989,8 +1060,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   senderContainer: {
     flexDirection: 'row',
@@ -998,15 +1069,15 @@ const styles = StyleSheet.create({
   },
   notificationIcon: {
     fontSize: 18,
-    marginRight: 8,
+    marginRight: 10,
   },
   sender: {
     fontWeight: "700",
     fontSize: 16,
-    color: "#34d399",
+    color: "#333",
   },
   messageContent: {
-    padding: 15,
+    padding: 16,
   },
   messageText: {
     fontSize: 15,
@@ -1020,13 +1091,14 @@ const styles = StyleSheet.create({
   },
   appointmentDetailsContainer: {
     backgroundColor: '#f0f7ff',
-    padding: 10,
+    padding: 12,
     borderRadius: 8,
     marginTop: 8,
   },
   appointmentDetails: {
     fontSize: 14,
     color: '#5e81ac',
+    lineHeight: 20,
   },
   emptyState: {
     flex: 1,
@@ -1067,16 +1139,21 @@ const styles = StyleSheet.create({
   },
   viewParticipantsButton: {
     backgroundColor: '#4CAF50',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    marginTop: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginTop: 12,
     alignSelf: 'flex-start',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
   },
   viewParticipantsText: {
     color: 'white',
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
   },
   toggleContainer: {
     flexDirection: 'row',
@@ -1103,6 +1180,39 @@ const styles = StyleSheet.create({
   },
   shimmerContainer: {
     padding: 15,
+  },
+  typeFilterContainer: {
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  typeFilterScroll: {
+    paddingHorizontal: 16,
+  },
+  typeFilterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginRight: 10,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  typeFilterActive: {
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
+  },
+  typeFilterText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  typeFilterTextActive: {
+    color: '#ffffff',
   },
 });
 

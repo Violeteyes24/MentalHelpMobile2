@@ -58,6 +58,8 @@ export default function CounselorList() {
   const [modalVisible, setModalVisible] = useState(false);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
+  // New state for appointment filters
+  const [appointmentFilter, setAppointmentFilter] = useState<string>("all");
 
   useEffect(() => {
     fetchCounselors();
@@ -246,7 +248,7 @@ export default function CounselorList() {
     const now = new Date().toISOString();
     
     try {
-        // Modify the query to directly fetch availability schedule
+        // Fetch regular appointments
         let { data, error } = await supabase
             .from("appointments")
             .select(`
@@ -261,6 +263,49 @@ export default function CounselorList() {
             `)
             .eq("user_id", session.user.id)
             .not('status', 'in', '("cancelled","completed")');
+
+        if (error) throw error;
+        
+        // Also fetch group appointments where the user is a participant
+        const { data: groupData, error: groupError } = await supabase
+            .from("groupappointments")
+            .select(`
+                g_appointment_id,
+                appointment_id,
+                problem,
+                appointments (
+                    *,
+                    counselor:counselor_id (
+                        user_id,
+                        name,
+                        user_type,
+                        department,
+                        profile_image_url
+                    )
+                )
+            `)
+            .eq("user_id", session.user.id);
+
+        if (groupError) {
+            console.error("Error fetching group appointments:", groupError);
+        } else if (groupData && groupData.length > 0) {
+            // Process group appointments and add them to the regular appointments list
+            const processedGroupAppointments = groupData
+                .filter(g => {
+                  // Type guard to ensure appointments has the right structure
+                  const app = g.appointments as any;
+                  return app && app.status !== 'cancelled' && app.status !== 'completed';
+                })
+                .map(g => ({
+                    ...(g.appointments as any),
+                    is_group: true,
+                    g_appointment_id: g.g_appointment_id,
+                    problem: g.problem
+                }));
+            
+            // Combine both types of appointments
+            data = [...(data || []), ...processedGroupAppointments];
+        }
 
         // If appointments are found, fetch their schedules separately
         if (data && data.length > 0) {
@@ -287,13 +332,6 @@ export default function CounselorList() {
         }
 
         console.log("Fetched appointments with schedules:", data);
-
-        if (error) throw error;
-
-        // Additional logging and error handling
-        if (!data || data.length === 0) {
-            console.log("No upcoming appointments found");
-        }
 
         setAppointments(data || []);
     } catch (error) {
@@ -345,6 +383,51 @@ export default function CounselorList() {
         },
       ]
     );
+  }
+
+  // New function to view group members
+  async function handleViewGroupMembers(appointmentId: string) {
+    try {
+      // Fetch group members for this appointment
+      const { data, error } = await supabase
+        .from("groupappointments")
+        .select(`
+          user_id,
+          problem,
+          users!inner (
+            name
+          )
+        `)
+        .eq("appointment_id", appointmentId);
+
+      if (error) {
+        console.error("Error fetching group members:", error);
+        Alert.alert("Error", "Failed to fetch group members");
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        Alert.alert("No Group Members", "This appointment has no group members.");
+        return;
+      }
+
+      // Format the members list with safe property access
+      const membersList = data.map(member => {
+        // @ts-ignore -- This field exists in the API response
+        const userName = member.users?.name || 'Unknown';
+        return `• ${userName}${member.problem ? `\n  Problem: ${member.problem}` : ''}`;
+      }).join('\n\n');
+
+      // Show in alert
+      Alert.alert(
+        `Group Members (${data.length})`,
+        membersList,
+        [{ text: "OK" }]
+      );
+    } catch (e) {
+      console.error("Error viewing group members:", e);
+      Alert.alert("Error", "An error occurred while fetching group members");
+    }
   }
 
   // Format the date and time for display
@@ -603,6 +686,62 @@ export default function CounselorList() {
               </TouchableOpacity>
             </View>
 
+            {/* Appointment type filters */}
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              style={styles.appointmentFilters}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.appointmentFilterButton,
+                  appointmentFilter === "all" && styles.appointmentFilterActive,
+                ]}
+                onPress={() => setAppointmentFilter("all")}
+              >
+                <Text
+                  style={[
+                    styles.appointmentFilterText,
+                    appointmentFilter === "all" && styles.appointmentFilterTextActive,
+                  ]}
+                >
+                  🔔 All
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.appointmentFilterButton,
+                  appointmentFilter === "regular" && styles.appointmentFilterActive,
+                ]}
+                onPress={() => setAppointmentFilter("regular")}
+              >
+                <Text
+                  style={[
+                    styles.appointmentFilterText,
+                    appointmentFilter === "regular" && styles.appointmentFilterTextActive,
+                  ]}
+                >
+                  👤 Individual
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.appointmentFilterButton,
+                  appointmentFilter === "group" && styles.appointmentFilterActive,
+                ]}
+                onPress={() => setAppointmentFilter("group")}
+              >
+                <Text
+                  style={[
+                    styles.appointmentFilterText,
+                    appointmentFilter === "group" && styles.appointmentFilterTextActive,
+                  ]}
+                >
+                  👥 Group
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+
             {appointmentsLoading ? (
               <View style={styles.modalLoader}>
                 {Array(3)
@@ -622,57 +761,126 @@ export default function CounselorList() {
               </View>
             ) : appointments.length > 0 ? (
               <ScrollView style={styles.appointmentsList}>
-                {appointments.map((appointment) => (
-                  <View
-                    key={appointment.appointment_id}
-                    style={styles.appointmentItem}
-                  >
-                    <View style={styles.appointmentInfo}>
-                      <Text style={styles.appointmentCounselor}>
-                        {appointment.counselor?.name || "Unknown Counselor"}
-                      </Text>
-                      <Text style={styles.appointmentDateTime}>
-                        {appointment.availability_schedules
-                          ? formatDateTime(
-                              appointment.availability_schedules.date,
-                              appointment.availability_schedules.start_time,
-                              appointment.availability_schedules.end_time
-                            )
-                          : "Schedule not available"}
-                      </Text>
-                      <Text
+                {appointments
+                  .filter(appointment => {
+                    if (appointmentFilter === "all") return true;
+                    if (appointmentFilter === "regular") return !appointment.is_group;
+                    if (appointmentFilter === "group") return appointment.is_group;
+                    return true;
+                  })
+                  .map((appointment) => {
+                    // Check if appointment is expired
+                    const isExpired = appointment.availability_schedules && 
+                      new Date(`${appointment.availability_schedules.date}T${appointment.availability_schedules.end_time}`) < new Date();
+                    
+                    return (
+                      <View
+                        key={appointment.is_group ? appointment.g_appointment_id : appointment.appointment_id}
                         style={[
-                          styles.appointmentStatus,
-                          {
-                            color:
-                              appointment.status === "confirmed"
-                                ? "#4CAF50"
-                                : "#FF9800",
-                          },
+                          styles.appointmentItem,
+                          appointment.is_group && styles.groupAppointmentItem,
+                          isExpired && styles.expiredAppointmentItem
                         ]}
                       >
-                        Status:{" "}
-                        {appointment.status.charAt(0).toUpperCase() +
-                          appointment.status.slice(1)}
-                      </Text>
-                    </View>
-                    <View style={styles.appointmentActions}>
-                      <TouchableOpacity
-                        style={[styles.actionButton, styles.cancelButton]}
-                        onPress={() =>
-                          handleCancelAppointment(
-                            appointment.appointment_id,
-                            appointment.availability_schedules
-                              ?.availability_schedule_id,
-                            appointment.counselor_id
-                          )
-                        }
-                      >
-                        <Text style={styles.actionButtonText}>Cancel</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))}
+                        <View style={styles.appointmentHeader}>
+                          {appointment.counselor?.profile_image_url ? (
+                            <Image
+                              source={{ uri: appointment.counselor.profile_image_url }}
+                              style={styles.counselorAvatar}
+                            />
+                          ) : (
+                            <View style={[styles.counselorAvatar, styles.counselorAvatarPlaceholder]}>
+                              <Text style={styles.counselorInitials}>
+                                {appointment.counselor?.name?.charAt(0) || "?"}
+                              </Text>
+                            </View>
+                          )}
+                          <View style={styles.appointmentInfo}>
+                            <Text style={styles.appointmentCounselor}>
+                              {appointment.counselor?.name || "Unknown Counselor"}
+                            </Text>
+                            <View style={styles.appointmentTypeContainer}>
+                              {appointment.is_group ? (
+                                <View style={styles.appointmentTypeTag}>
+                                  <MaterialIcons name="groups" size={14} color="#fff" />
+                                  <Text style={styles.appointmentTypeText}>Group</Text>
+                                </View>
+                              ) : (
+                                <View style={[styles.appointmentTypeTag, styles.individualTag]}>
+                                  <MaterialIcons name="person" size={14} color="#fff" />
+                                  <Text style={styles.appointmentTypeText}>Individual</Text>
+                                </View>
+                              )}
+                              <View style={[
+                                styles.statusTag,
+                                isExpired ? styles.expiredTag :
+                                appointment.status === "confirmed" ? styles.confirmedTag :
+                                appointment.status === "rescheduled" ? styles.rescheduledTag :
+                                appointment.status === "cancelled" ? styles.cancelledTag :
+                                styles.pendingTag
+                              ]}>
+                                <Text style={styles.statusText}>
+                                  {isExpired ? "Expired" : 
+                                  appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                        </View>
+                        
+                        <View style={styles.appointmentDetails}>
+                          <View style={styles.appointmentDetail}>
+                            <MaterialIcons name="event" size={18} color="#4a5568" />
+                            <Text style={styles.appointmentDateTime}>
+                              {appointment.availability_schedules
+                                ? formatDateTime(
+                                    appointment.availability_schedules.date,
+                                    appointment.availability_schedules.start_time,
+                                    appointment.availability_schedules.end_time
+                                  )
+                                : "Schedule not available"}
+                            </Text>
+                          </View>
+                          
+                          {appointment.is_group && appointment.problem && (
+                            <View style={styles.problemContainer}>
+                              <Text style={styles.problemLabel}>Problem:</Text>
+                              <Text style={styles.problemText}>{appointment.problem}</Text>
+                            </View>
+                          )}
+                        </View>
+                        
+                        {appointment.status !== "cancelled" && !isExpired && (
+                          <View style={styles.appointmentActions}>
+                            <TouchableOpacity
+                              style={[styles.actionButton, styles.cancelButton]}
+                              onPress={() =>
+                                handleCancelAppointment(
+                                  appointment.appointment_id,
+                                  appointment.availability_schedules
+                                    ?.availability_schedule_id,
+                                  appointment.counselor_id
+                                )
+                              }
+                            >
+                              <MaterialIcons name="cancel" size={16} color="#fff" />
+                              <Text style={styles.actionButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                            
+                            {appointment.is_group && (
+                              <TouchableOpacity
+                                style={[styles.actionButton, styles.viewGroupButton]}
+                                onPress={() => handleViewGroupMembers(appointment.appointment_id)}
+                              >
+                                <MaterialIcons name="people" size={16} color="#fff" />
+                                <Text style={styles.actionButtonText}>View Group</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
               </ScrollView>
             ) : (
               <View style={styles.noAppointments}>
@@ -869,46 +1077,152 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   appointmentItem: {
-    backgroundColor: "#f9f9f9",
-    borderRadius: 10,
+    backgroundColor: "#fff",
+    borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: "#3F51B5",
+  },
+  groupAppointmentItem: {
+    borderLeftColor: "#4CAF50",
+  },
+  appointmentHeader: {
+    flexDirection: "row",
+    marginBottom: 12,
+    alignItems: "center",
+  },
+  counselorAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 12,
+    backgroundColor: "#f0f0f0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  counselorAvatarPlaceholder: {
+    backgroundColor: "#e0e0e0",
+  },
+  counselorInitials: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#555",
+  },
+  appointmentTypeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+    gap: 8,
+  },
+  appointmentTypeTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#4CAF50",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  individualTag: {
+    backgroundColor: "#3F51B5",
+  },
+  appointmentTypeText: {
+    fontSize: 12,
+    color: "#fff",
+    fontWeight: "600",
+  },
+  statusTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  confirmedTag: {
+    backgroundColor: "#e8f5e9",
+  },
+  rescheduledTag: {
+    backgroundColor: "#fff3e0",
+  },
+  cancelledTag: {
+    backgroundColor: "#ffebee",
+  },
+  pendingTag: {
+    backgroundColor: "#e3f2fd",
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#333",
+  },
+  appointmentDetails: {
+    marginBottom: 12,
+  },
+  appointmentDetail: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+    gap: 8,
   },
   appointmentInfo: {
-    marginBottom: 12,
+    flex: 1,
   },
   appointmentCounselor: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#333",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   appointmentDateTime: {
     fontSize: 14,
-    color: "#555",
+    color: "#4a5568",
+  },
+  problemContainer: {
+    backgroundColor: "#f2f9f3",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: "#4CAF50",
+  },
+  problemLabel: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#388e3c",
     marginBottom: 4,
   },
-  appointmentStatus: {
+  problemText: {
     fontSize: 14,
-    fontWeight: "bold",
+    color: "#333",
+    lineHeight: 20,
   },
   appointmentActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
+    gap: 10,
   },
   actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 6,
-    marginLeft: 8,
+    borderRadius: 8,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    gap: 6,
   },
   cancelButton: {
-    backgroundColor: "#e74c3c",
+    backgroundColor: "#f44336",
+  },
+  viewGroupButton: {
+    backgroundColor: "#4CAF50",
   },
   actionButtonText: {
     color: "#fff",
@@ -927,5 +1241,46 @@ const styles = StyleSheet.create({
   },
   messageButtonDisabled: {
     opacity: 0.6,
+  },
+  
+  // New styles for appointment filters and group appointments
+  appointmentFilters: {
+    flexDirection: "row",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  appointmentFilterButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: "#f1f5f9",
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  appointmentFilterActive: {
+    backgroundColor: "#3F51B5",
+    borderColor: "#3F51B5",
+  },
+  appointmentFilterText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#64748b",
+  },
+  appointmentFilterTextActive: {
+    color: "#fff",
+  },
+  expiredAppointmentItem: {
+    borderLeftColor: "#FF9800",
+  },
+  expiredTag: {
+    backgroundColor: "#FFF3E0",
   },
 });

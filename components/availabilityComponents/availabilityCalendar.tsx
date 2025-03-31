@@ -247,27 +247,48 @@ export default function AvailabilityCalendar({
               <View style={[styles.legendDot, {backgroundColor: '#ffcdd2'}]} />
               <Text style={styles.legendText}>Unavailable</Text>
             </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, {backgroundColor: '#ffe0b2'}]} />
+              <Text style={styles.legendText}>Expired</Text>
+            </View>
           </View>
         </View>
       )}
     </View>
   );
 
-  const renderSlot = ({ item }: { item: any }) => (
-    <View style={[styles.slot, !item.is_available && styles.unavailable]}>
+  const renderSlot = ({ item }: { item: any }) => {
+    // Check if the slot is expired
+    const now = new Date();
+    const slotDateTime = new Date(`${selectedDate}T${item.end_time}`);
+    const isExpired = slotDateTime < now;
+    
+    return (
+    <View style={[
+      styles.slot, 
+      !item.is_available && styles.unavailable,
+      isExpired && styles.expired
+    ]}>
       <View style={styles.slotRow}>
         <View style={styles.timeContainer}>
           <Icon 
             name="access-time" 
             size={18} 
-            color={item.is_available ? "#368a73" : "#b71c1c"} 
+            color={
+              isExpired ? "#FF9800" : 
+              item.is_available ? "#368a73" : "#b71c1c"
+            } 
             style={styles.timeIcon}
           />
-          <Text style={[styles.timeText, !item.is_available && styles.unavailableText]}>
+          <Text style={[
+            styles.timeText, 
+            !item.is_available && styles.unavailableText,
+            isExpired && styles.expiredText
+          ]}>
             {convertTo12Hour(item.start_time)} - {convertTo12Hour(item.end_time)}
           </Text>
         </View>
-        {item.is_available ? (
+        {item.is_available && !isExpired ? (
           <TouchableOpacity 
             style={styles.bookButton} 
             onPress={() => handleBooking(item)}
@@ -275,6 +296,10 @@ export default function AvailabilityCalendar({
             <Text style={styles.bookButtonText}>Book</Text>
             <Icon name="event-available" size={16} color="#fff" style={styles.bookIcon} />
           </TouchableOpacity>
+        ) : isExpired ? (
+          <View style={styles.expiredTag}>
+            <Text style={styles.expiredTagText}>Expired</Text>
+          </View>
         ) : (
           <View style={styles.bookedTag}>
             <Text style={styles.bookedText}>Booked</Text>
@@ -282,7 +307,7 @@ export default function AvailabilityCalendar({
         )}
       </View>
     </View>
-  );
+  )};
 
   const renderEmptyList = () => (
     <View style={styles.emptyContainer}>
@@ -805,5 +830,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
     textAlign: 'center',
+  },
+  expired: {
+    backgroundColor: '#fff3e0',
+    borderLeftColor: '#FF9800',
+  },
+  expiredText: {
+    color: '#FF9800',
+  },
+  expiredTag: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff3e0',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FF9800',
+  },
+  expiredTagText: {
+    fontSize: 14,
+    color: '#FF9800',
+    fontWeight: '500',
   },
 });
