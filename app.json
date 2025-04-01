@@ -13,22 +13,47 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.violeteyes24.expousermanagement",
+      "associatedDomains": [
+        "applinks:mentalhelp.fun",
+        "applinks:www.mentalhelp.fun"
+      ]
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.violeteyes24.expousermanagement"
+      "package": "com.violeteyes24.expousermanagement",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "*.mentalhelp.fun",
+              "pathPrefix": "/reset-password"
+            },
+            {
+              "scheme": "https",
+              "host": "mentalhelp.fun",
+              "pathPrefix": "/reset-password"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "plugins": [
       "expo-router"
     ],
-    "scheme": "expo-user-management",
+    "scheme": "mentalhelp",
     "extra": {
       "router": {
         "origin": false

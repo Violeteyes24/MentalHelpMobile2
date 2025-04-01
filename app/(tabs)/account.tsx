@@ -32,6 +32,16 @@ export default function Account() {
   const [showYearLevelDropdown, setShowYearLevelDropdown] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
+  
+  // Change password state variables
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [showChangePasswordForm, setShowChangePasswordForm] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [changePasswordLoading, setChangePasswordLoading] = useState(false);
 
   const router = useRouter();
   const navigateToHome = () => router.push("/(tabs)/");
@@ -339,6 +349,61 @@ export default function Account() {
   const programOptions = ["BSIT", "BSCS", "BSN", "BSCE", "BSTM", "BSFM", "BSA"];
   const departmentOptions = ['COECS', 'CBA', 'COL', 'IBED', 'CHS', 'CAS'];
   const yearLevelOptions = ["1","2","3","4","5"];
+
+  // Add change password function
+  async function changePassword() {
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      Alert.alert("Error", "Please fill in all password fields");
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      Alert.alert("Error", "New passwords do not match");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      Alert.alert("Error", "New password must be at least 6 characters long");
+      return;
+    }
+
+    setChangePasswordLoading(true);
+
+    try {
+      // First verify the current password is correct
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: session?.user?.email || "",
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        Alert.alert("Error", "Current password is incorrect");
+        setChangePasswordLoading(false);
+        return;
+      }
+
+      // If current password is correct, update to new password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) {
+        Alert.alert("Error", updateError.message);
+      } else {
+        Alert.alert("Success", "Password updated successfully");
+        // Clear the form
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmNewPassword("");
+        setShowChangePasswordForm(false);
+      }
+    } catch (error) {
+      console.error("Password change error:", error);
+      Alert.alert("Error", "Failed to update password");
+    }
+
+    setChangePasswordLoading(false);
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -745,6 +810,87 @@ export default function Account() {
           />
         </View>
 
+        {/* Change Password Section */}
+        <View style={styles.changePasswordSection}>
+          <TouchableOpacity 
+            style={styles.changePasswordToggle}
+            onPress={() => setShowChangePasswordForm(!showChangePasswordForm)}
+          >
+            <Text style={styles.changePasswordToggleText}>
+              {showChangePasswordForm ? "Hide Password Change" : "Change Password"}
+            </Text>
+          </TouchableOpacity>
+
+          {showChangePasswordForm && (
+            <View style={styles.changePasswordForm}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Current Password</Text>
+                <Input
+                  inputStyle={styles.input}
+                  inputContainerStyle={styles.inputField}
+                  value={currentPassword}
+                  onChangeText={(text) => setCurrentPassword(text)}
+                  placeholder="Enter current password"
+                  secureTextEntry={!showCurrentPassword}
+                  rightIcon={{ 
+                    type: 'font-awesome', 
+                    name: showCurrentPassword ? 'eye-slash' : 'eye', 
+                    color: '#34d399',
+                    onPress: () => setShowCurrentPassword(!showCurrentPassword)
+                  }}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>New Password</Text>
+                <Input
+                  inputStyle={styles.input}
+                  inputContainerStyle={styles.inputField}
+                  value={newPassword}
+                  onChangeText={(text) => setNewPassword(text)}
+                  placeholder="Enter new password"
+                  secureTextEntry={!showNewPassword}
+                  rightIcon={{ 
+                    type: 'font-awesome', 
+                    name: showNewPassword ? 'eye-slash' : 'eye', 
+                    color: '#34d399',
+                    onPress: () => setShowNewPassword(!showNewPassword)
+                  }}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Confirm New Password</Text>
+                <Input
+                  inputStyle={styles.input}
+                  inputContainerStyle={styles.inputField}
+                  value={confirmNewPassword}
+                  onChangeText={(text) => setConfirmNewPassword(text)}
+                  placeholder="Confirm new password"
+                  secureTextEntry={!showConfirmPassword}
+                  rightIcon={{ 
+                    type: 'font-awesome', 
+                    name: showConfirmPassword ? 'eye-slash' : 'eye', 
+                    color: '#34d399',
+                    onPress: () => setShowConfirmPassword(!showConfirmPassword)
+                  }}
+                />
+              </View>
+
+              <Button
+                title={changePasswordLoading ? "Updating..." : "Update Password"}
+                onPress={changePassword}
+                disabled={changePasswordLoading}
+                buttonStyle={styles.passwordButton}
+                titleStyle={styles.buttonText}
+                disabledStyle={styles.disabledButton}
+                loading={changePasswordLoading}
+                loadingProps={{ color: 'white' }}
+              />
+            </View>
+          )}
+        </View>
+
         <View style={styles.buttonContainer}>
           <Button 
             title="Back to Home" 
@@ -988,5 +1134,43 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  changePasswordSection: {
+    marginTop: 15,
+    marginBottom: 10,
+    paddingHorizontal: 10,
+  },
+  changePasswordToggle: {
+    backgroundColor: '#f3f4f6',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  changePasswordToggleText: {
+    color: '#34d399',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  changePasswordForm: {
+    marginTop: 15,
+    padding: 15,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  passwordButton: {
+    backgroundColor: '#34d399',
+    borderRadius: 8,
+    height: 50,
+    marginTop: 10,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.23,
+    shadowRadius: 2.62,
+    elevation: 4,
   },
 });
