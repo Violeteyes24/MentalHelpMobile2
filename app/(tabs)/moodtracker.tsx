@@ -113,6 +113,13 @@ const EmotionAnalysis: React.FC = () => {
     series.map(item => item.color),
   [series]);
 
+  // Get intensity range label
+  const getIntensityRange = (value: number): string => {
+    if (value >= 8) return "High";
+    if (value >= 4) return "Moderate";
+    return "Low";
+  };
+
   async function insertMoodTrackerData() {
     try {
       setLoading(true);
@@ -283,6 +290,20 @@ const EmotionAnalysis: React.FC = () => {
           <View style={styles.legendContainer}>
             {series.map(renderColorSwatch)}
           </View>
+          
+          <View style={styles.intensityLegendContainer}>
+            <Text style={styles.intensityLegendTitle}>Intensity Ranges:</Text>
+            <View style={styles.intensityLegendRow}>
+              <View style={[styles.intensityIndicator, styles.lowIndicator]} />
+              <Text style={styles.intensityLegendText}>Low (1-3)</Text>
+              
+              <View style={[styles.intensityIndicator, styles.moderateIndicator]} />
+              <Text style={styles.intensityLegendText}>Moderate (4-7)</Text>
+              
+              <View style={[styles.intensityIndicator, styles.highIndicator]} />
+              <Text style={styles.intensityLegendText}>High (8-10)</Text>
+            </View>
+          </View>
         </View>
 
         <View style={styles.card}>
@@ -311,7 +332,7 @@ const EmotionAnalysis: React.FC = () => {
             <Text style={styles.modalTitle}>Mood Tracker Results</Text>
             {Object.entries(emotions).map(([emotion, value]) => (
               <Text key={emotion} style={styles.modalText}>
-                {emotion}: {value}
+                {emotion}: {value} ({getIntensityRange(value)})
               </Text>
             ))}
             <TouchableOpacity
@@ -512,6 +533,45 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     marginTop: 2,
+  },
+  intensityLegendContainer: {
+    marginTop: 15,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#eaeaea',
+  },
+  intensityLegendTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#555',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  intensityLegendRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  intensityIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 4,
+  },
+  intensityLegendText: {
+    fontSize: 12,
+    color: '#555',
+    marginRight: 10,
+  },
+  lowIndicator: {
+    backgroundColor: '#F44336',
+  },
+  moderateIndicator: {
+    backgroundColor: '#FFC107',
+  },
+  highIndicator: {
+    backgroundColor: '#4CAF50',
   },
 });
 
