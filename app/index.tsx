@@ -387,35 +387,6 @@ export default function Auth() {
     setLoading(false);
   }
 
-  // Add forgot password function
-  async function forgotPassword() {
-    if (!email) {
-      Alert.alert("Please enter your email address");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://www.mentalhelp.fun/reset-password',
-      });
-
-      if (error) {
-        Alert.alert("Error", error.message);
-      } else {
-        Alert.alert(
-          "Password Reset Email Sent",
-          "Check your email for a password reset link. You can reset your password on our website."
-        );
-      }
-    } catch (err) {
-      Alert.alert("Error", "Failed to send password reset email");
-    }
-
-    setLoading(false);
-  }
-
   // Function to navigate between signup steps
   const navigateStep = (direction: any) => {
     const nextStep = currentSignupStep + direction;
@@ -938,14 +909,6 @@ export default function Auth() {
                       />
                     )}
                   </View>
-
-                  {/* <TouchableOpacity 
-                    onPress={forgotPassword}
-                    disabled={loading}
-                    style={styles.forgotPasswordContainer}
-                  >
-                    <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-                  </TouchableOpacity> */}
 
                   <Text style={styles.orText}>OR</Text>
 
@@ -1575,14 +1538,5 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 8,
-  },
-  forgotPasswordContainer: {
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  forgotPasswordText: {
-    color: '#34d399',
-    fontSize: 14,
-    fontWeight: '500',
   },
 });

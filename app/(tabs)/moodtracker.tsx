@@ -122,6 +122,7 @@ const EmotionAnalysis: React.FC = () => {
           mood_type,
           intensity: Math.min(10, Math.max(1, intensity)),
           user_id: session?.user.id,
+          tracked_at: new Date().toISOString(), // Add current timestamp with timezone
         })
       );
 
