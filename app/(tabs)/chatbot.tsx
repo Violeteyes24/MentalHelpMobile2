@@ -110,6 +110,15 @@ interface UserData {
   // Add other user properties as needed
 }
 
+// Define the terms and conditions as an array of strings
+const termsAndConditions = [
+  "This chatbot provides basic mental health support and information only.",
+  "It may make mistakes and is not a substitute for professional mental health services.",
+  "If you have severe mental health issues, please seek immediate professional help.",
+  "Responses are AI-generated and should be used as general guidance only.",
+  "In an emergency, contact your local mental health crisis hotline or emergency services.",
+];
+
 const Chatbot = () => {
   const { session } = useAuth();
   const [chatLog, setChatLog] = useState<ChatbotView[]>([]);
@@ -120,6 +129,7 @@ const Chatbot = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasDisagreed, setHasDisagreed] = useState(false);
+  const [currentTermIndex, setCurrentTermIndex] = useState(0); // New state for tracking current term
   
   // Group chat logs by date
   const groupedChatLog = groupChatByDate(chatLog);
@@ -180,6 +190,8 @@ const Chatbot = () => {
   // Add this for testing purposes
   const resetTerms = async () => {
     await AsyncStorage.removeItem('chatbotTermsAccepted');
+    setCurrentTermIndex(0); // Reset term index
+    setHasDisagreed(false); // Reset disagreement state
     setShowTerms(true);
   };
 
@@ -206,14 +218,25 @@ const Chatbot = () => {
     }
   }
 
-  // Modified handleAcceptTerms to reset disagreement state
   const handleAcceptTerms = async () => {
     try {
       await AsyncStorage.setItem('chatbotTermsAccepted', 'true');
       setHasDisagreed(false); // Allow chatbot usage after agreeing
       setShowTerms(false);
+      setCurrentTermIndex(0); // Reset index after full acceptance
     } catch (error) {
       console.error('Error saving terms acceptance:', error);
+    }
+  };
+
+  // New handler for agreeing to a single term
+  const handleAgreeSingleTerm = () => {
+    if (currentTermIndex < termsAndConditions.length - 1) {
+      // Move to the next term
+      setCurrentTermIndex(currentTermIndex + 1);
+    } else {
+      // All terms agreed, finalize acceptance
+      handleAcceptTerms();
     }
   };
 
@@ -221,6 +244,7 @@ const Chatbot = () => {
   const handleDisagreeTerms = () => {
     setHasDisagreed(true);
     setShowTerms(false);
+    setCurrentTermIndex(0); // Reset term index on disagreement
   };
 
   async function fetchUserData() {
@@ -635,27 +659,21 @@ Your response:`;
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Terms and Conditions</Text>
-            <ScrollView style={styles.modalScroll}>
+            <Text style={styles.modalTitle}>
+              Terms and Conditions ({currentTermIndex + 1}/{termsAndConditions.length})
+            </Text>
+            <View style={styles.modalScroll}>
               <Text style={styles.modalText}>
-                Please read and accept the following terms before using the Mental Health Chatbot:
-                {'\n\n'}
-                1. This chatbot is designed to provide basic mental health support and information only.
-                {'\n\n'}
-                2. The chatbot may make mistakes and should not be considered as a replacement for professional mental health services.
-                {'\n\n'}
-                3. If you are experiencing severe mental health issues, please seek immediate professional help.
-                {'\n\n'}
-                4. The responses provided are generated using AI and should be used as general guidance only.
-                {'\n\n'}
-                5. In case of emergency, contact your local mental health crisis hotline or emergency services.
+                {termsAndConditions[currentTermIndex]}
               </Text>
-            </ScrollView>
+            </View>
             <TouchableOpacity
               style={styles.acceptButton}
-              onPress={handleAcceptTerms}
+              onPress={handleAgreeSingleTerm}
             >
-              <Text style={styles.acceptButtonText}>I Understand and Accept</Text>
+              <Text style={styles.acceptButtonText}>
+                {currentTermIndex < termsAndConditions.length - 1 ? "I Agree, Next" : "I Understand and Accept All"}
+              </Text>
             </TouchableOpacity>
             {/* Added Disagree Button */}
             <TouchableOpacity
