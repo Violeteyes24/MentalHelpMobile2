@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,15 +11,22 @@ import {
   ScrollView,
   Dimensions,
   Pressable,
+  ActivityIndicator,
 } from "react-native";
 import PieChart from "react-native-pie-chart/v3api";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 import { createShimmerPlaceholder } from 'react-native-shimmer-placeholder';
 import LinearGradient from 'expo-linear-gradient';
+import OpenAI from "openai";
 
 // Create shimmer component with a workaround for Expo's LinearGradient
 const ShimmerPlaceholder = createShimmerPlaceholder(LinearGradient as any);
+
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 const EmotionAnalysis: React.FC = () => {
   const [emotions, setEmotions] = useState<{ [key: string]: number }>({
@@ -32,18 +39,44 @@ const EmotionAnalysis: React.FC = () => {
   });
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isInitialLoading, setIsInitialLoading] = useState(true); // New state for initial loading
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [suggestions, setSuggestions] = useState<string>("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [generatingSuggestions, setGeneratingSuggestions] = useState(false);
   const { session } = useAuth();
+  const [userData, setUserData] = useState<any>(null);
 
-  // Simulate initial loading - in a real app, you would set this after data fetching
-  React.useEffect(() => {
+  // Fetch user data on component mount
+  useEffect(() => {
+    if (session?.user.id) {
+      fetchUserData();
+    }
+    
     // Simulate data loading
     const timer = setTimeout(() => {
       setIsInitialLoading(false);
     }, 1500);
     
     return () => clearTimeout(timer);
-  }, []);
+  }, [session]);
+
+  async function fetchUserData() {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("user_id", session?.user.id)
+        .single();
+
+      if (error) {
+        console.error("Error fetching user data:", error);
+      } else {
+        setUserData(data);
+      }
+    } catch (error) {
+      console.error("Error in fetchUserData:", error);
+    }
+  }
 
   const emotionColors: { [key: string]: string } = {
     Happy: "#FFC107", // Yellow (more vibrant)
@@ -119,6 +152,45 @@ const EmotionAnalysis: React.FC = () => {
     if (value >= 4) return "Moderate";
     return "Low";
   };
+
+  // Generate AI suggestions based on mood data
+  async function generateSuggestions() {
+    try {
+      setGeneratingSuggestions(true);
+      
+      // Identify primary emotion only
+      const sortedEmotions = Object.entries(emotions)
+        .sort(([, a], [, b]) => b - a)
+        .map(([emotion, intensity]) => ({ emotion, intensity }));
+      
+      const primaryEmotion = sortedEmotions[0];
+      
+      // Create a simplified prompt for the AI
+      const prompt = `You are a mental health assistant providing a brief suggestion based on a user's primary emotion.
+
+Primary emotion: ${primaryEmotion.emotion} (${primaryEmotion.intensity}/10, ${getIntensityRange(primaryEmotion.intensity)} intensity)
+
+User name: ${userData?.name || 'User'}
+
+Provide a SINGLE SHORT PARAGRAPH (maximum 3-4 sentences) with practical advice for someone experiencing ${primaryEmotion.emotion.toLowerCase()} at this intensity level. Be supportive and concise. The total response must be under 80 words.`;
+
+      // Call OpenAI API
+      const response = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      const suggestionText = response.choices[0]?.message?.content || 
+        "Unable to generate suggestions at this time. Please try again later.";
+      
+      setSuggestions(suggestionText);
+    } catch (error) {
+      console.error("Error generating suggestions:", error);
+      setSuggestions("Sorry, there was an error generating suggestions. Please try again later.");
+    } finally {
+      setGeneratingSuggestions(false);
+    }
+  }
 
   async function insertMoodTrackerData() {
     try {
@@ -335,8 +407,40 @@ const EmotionAnalysis: React.FC = () => {
                 {emotion}: {value} ({getIntensityRange(value)})
               </Text>
             ))}
+            
+            {!showSuggestions ? (
+              <TouchableOpacity
+                onPress={() => {
+                  setShowSuggestions(true);
+                  generateSuggestions();
+                }}
+                style={styles.suggestionButton}
+                disabled={generatingSuggestions}
+              >
+                <Text style={styles.suggestionButtonText}>
+                  See Suggestions
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.suggestionsContainer}>
+                <Text style={styles.suggestionsTitle}>AI Suggestions</Text>
+                {generatingSuggestions ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#34d399" />
+                    <Text style={styles.loadingText}>Generating suggestions...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.suggestionsText}>{suggestions}</Text>
+                )}
+              </View>
+            )}
+            
             <TouchableOpacity
-              onPress={() => setModalVisible(false)}
+              onPress={() => {
+                setModalVisible(false);
+                setShowSuggestions(false);
+                setSuggestions("");
+              }}
               style={styles.closeButton}
             >
               <Text style={styles.closeButtonText}>Close</Text>
@@ -572,6 +676,51 @@ const styles = StyleSheet.create({
   },
   highIndicator: {
     backgroundColor: '#4CAF50',
+  },
+  suggestionsContainer: {
+    width: '100%',
+    marginTop: 15,
+    marginBottom: 10,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#eaeaea',
+  },
+  suggestionsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#333',
+    textAlign: 'center',
+  },
+  suggestionsText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#444',
+    textAlign: 'left',
+  },
+  suggestionButton: {
+    marginTop: 20,
+    backgroundColor: '#4ade80',
+    borderRadius: 25,
+    paddingVertical: 10,
+    paddingHorizontal: 25,
+    width: "80%",
+  },
+  suggestionButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    textAlign: "center",
+    fontSize: 16,
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
+    fontSize: 14,
   },
 });
 

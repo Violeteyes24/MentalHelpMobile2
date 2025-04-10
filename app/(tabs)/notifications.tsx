@@ -2,6 +2,40 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, SectionList, ScrollView } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 import { useAuth } from "../../context/AuthContext";
+import { Audio } from 'expo-av';
+
+// Sound instance for notification
+let notificationSound: Audio.Sound | null = null;
+
+// Load sound
+const loadSound = async () => {
+  try {
+    const { sound } = await Audio.Sound.createAsync(
+      require('../../assets/sounds/notification.mp3')
+    );
+    notificationSound = sound;
+    console.log('Notification sound loaded');
+  } catch (error) {
+    console.error('Error loading sound:', error);
+  }
+};
+
+// Play notification sound
+const playNotificationSound = async () => {
+  try {
+    if (notificationSound) {
+      await notificationSound.replayAsync();
+    } else {
+      // If sound isn't loaded yet, load and play
+      const { sound } = await Audio.Sound.createAsync(
+        require('../../assets/sounds/notification.mp3')
+      );
+      await sound.playAsync();
+    }
+  } catch (error) {
+    console.error('Error playing notification sound:', error);
+  }
+};
 
 const supabase = createClient(
   "https://ybpoanqhkokhdqucwchy.supabase.co",
@@ -146,6 +180,19 @@ const NotificationUI: React.FC = () => {
   const [appointmentFilter, setAppointmentFilter] = useState<'all' | 'rescheduled' | 'cancelled' | 'group_added'>('all');
 
   useEffect(() => {
+    // Load notification sound
+    loadSound();
+    
+    // Cleanup function
+    return () => {
+      if (notificationSound) {
+        notificationSound.unloadAsync();
+        notificationSound = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (session?.user.id) {
       fetchRegularNotifications();
       fetchAppointmentNotifications();
@@ -172,6 +219,8 @@ const NotificationUI: React.FC = () => {
           // console.log('Notification change received!', payload);
           
           if (payload.new.user_id === session?.user.id) {
+            // Play notification sound
+            playNotificationSound();
             await fetchRegularNotifications();
           }
         }
@@ -193,6 +242,8 @@ const NotificationUI: React.FC = () => {
             // If user is involved
             if (payload.new && payload.new.user_id === session?.user.id) {
               // console.log('Appointment update involves current user');
+              // Play notification sound
+              playNotificationSound();
               await fetchAppointmentNotifications();
             }
           }
@@ -200,6 +251,7 @@ const NotificationUI: React.FC = () => {
           // For deletions - refresh anyway to be safe
           if (payload.eventType === 'DELETE' && payload.old) {
             // console.log('Appointment deleted - refreshing');
+            playNotificationSound();
             await fetchAppointmentNotifications();
           }
         }
@@ -219,6 +271,8 @@ const NotificationUI: React.FC = () => {
           // If the inserted record has the current user's ID, refresh appointment notifications
           if (payload.new.user_id === session?.user.id) {
             // console.log('Group appointment added');
+            // Play notification sound
+            playNotificationSound();
             await fetchAppointmentNotifications();
           }
         }
