@@ -72,6 +72,20 @@ export default function Auth() {
   const [isTermsModalVisible, setTermsModalVisible] = useState(false);
   const [isPrivacyModalVisible, setPrivacyModalVisible] = useState(false);
 
+  // Add validation error states
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
+  const [nameError, setNameError] = useState("");
+  const [usernameError, setUsernameError] = useState("");
+  const [birthdayError, setBirthdayError] = useState("");
+  const [contactNumberError, setContactNumberError] = useState("");
+  const [addressError, setAddressError] = useState("");
+  const [genderError, setGenderError] = useState("");
+  const [departmentError, setDepartmentError] = useState("");
+  const [programError, setProgramError] = useState("");
+  const [yearLevelError, setYearLevelError] = useState("");
+
   useEffect(() => {
     // Check if user is already authenticated
     const checkAuth = async () => {
@@ -114,9 +128,210 @@ export default function Auth() {
     }
   };
 
+  // Validate email format and domain
+  const validateEmail = (email: string) => {
+    if (!email.trim()) {
+      setEmailError("Email is required");
+      return false;
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailError("Please enter a valid email address");
+      return false;
+    }
+    
+    if (!email.includes("hnu.edu.ph")) {
+      setEmailError("Please use your HNU institutional email (hnu.edu.ph)");
+      return false;
+    }
+    
+    setEmailError("");
+    return true;
+  };
+
+  // Validate password
+  const validatePassword = (password: string) => {
+    if (!password.trim()) {
+      setPasswordError("Password is required");
+      return false;
+    }
+    
+    if (password.length < 6) {
+      setPasswordError("Password must be at least 6 characters");
+      return false;
+    }
+    
+    setPasswordError("");
+    return true;
+  };
+
+  // Validate confirm password
+  const validateConfirmPassword = (password: string, confirmPass: string) => {
+    if (!confirmPass.trim()) {
+      setConfirmPasswordError("Please confirm your password");
+      return false;
+    }
+    
+    if (password !== confirmPass) {
+      setConfirmPasswordError("Passwords do not match");
+      return false;
+    }
+    
+    setConfirmPasswordError("");
+    return true;
+  };
+
+  // Validate first page of signup
+  const validateSignupStep1 = () => {
+    const isEmailValid = validateEmail(email);
+    const isPasswordValid = validatePassword(password);
+    const isConfirmPasswordValid = validateConfirmPassword(password, confirmPassword);
+    const isNameValid = validateName(name);
+    const isUsernameValid = validateUsername(username);
+    const isBirthdayValid = validateBirthday(birthday);
+    
+    return isEmailValid && isPasswordValid && isConfirmPasswordValid && isNameValid && isUsernameValid && isBirthdayValid;
+  };
+
+  // Validate second page of signup
+  const validateSignupStep2 = () => {
+    const isContactValid = validateContactNumber(contactNumber);
+    const isAddressValid = validateAddress(address);
+    const isGenderValid = validateGender(gender);
+    const isDepartmentValid = validateDepartment(department);
+    const isProgramValid = validateProgram(program);
+    const isYearLevelValid = validateYearLevel(programYearLevel);
+    
+    return isContactValid && isAddressValid && isGenderValid && isDepartmentValid && isProgramValid && isYearLevelValid;
+  };
+
+  // Additional validation functions
+  const validateName = (name: string) => {
+    if (!name.trim()) {
+      setNameError("Full name is required");
+      return false;
+    }
+    setNameError("");
+    return true;
+  };
+
+  const validateUsername = (username: string) => {
+    if (!username.trim()) {
+      setUsernameError("Username is required");
+      return false;
+    }
+    setUsernameError("");
+    return true;
+  };
+
+  const validateBirthday = (date: Date) => {
+    if (!date) {
+      setBirthdayError("Birthday is required");
+      return false;
+    }
+    
+    // Validate birthday is not in the future
+    if (date > new Date()) {
+      setBirthdayError("Birthday cannot be in the future");
+      return false;
+    }
+
+    // Validate user is at least 13 years old
+    const thirteenYearsAgo = new Date();
+    thirteenYearsAgo.setFullYear(thirteenYearsAgo.getFullYear() - 13);
+    if (date > thirteenYearsAgo) {
+      setBirthdayError("You must be at least 13 years old");
+      return false;
+    }
+    
+    setBirthdayError("");
+    return true;
+  };
+
+  const validateContactNumber = (number: string) => {
+    if (!number.trim()) {
+      setContactNumberError("Contact number is required");
+      return false;
+    }
+    
+    const phoneRegex = /^\d{10,11}$/;
+    if (!phoneRegex.test(number)) {
+      setContactNumberError("Please enter a valid 10-11 digit number");
+      return false;
+    }
+    
+    setContactNumberError("");
+    return true;
+  };
+
+  const validateAddress = (address: string) => {
+    if (!address.trim()) {
+      setAddressError("Address is required");
+      return false;
+    }
+    setAddressError("");
+    return true;
+  };
+
+  const validateGender = (gender: string) => {
+    if (!gender.trim()) {
+      setGenderError("Please select a gender");
+      return false;
+    }
+    setGenderError("");
+    return true;
+  };
+
+  const validateDepartment = (dept: string) => {
+    if (!dept.trim()) {
+      setDepartmentError("Please select a department");
+      return false;
+    }
+    setDepartmentError("");
+    return true;
+  };
+
+  const validateProgram = (prog: string) => {
+    if (!prog.trim()) {
+      setProgramError("Please select a program");
+      return false;
+    }
+    setProgramError("");
+    return true;
+  };
+
+  const validateYearLevel = (year: string) => {
+    if (!year.trim()) {
+      setYearLevelError("Please select a year level");
+      return false;
+    }
+    setYearLevelError("");
+    return true;
+  };
+
+  // Function to navigate between signup steps
+  const navigateStep = (direction: any) => {
+    if (direction > 0) {
+      // Validate current step before proceeding
+      if (currentSignupStep === 1 && !validateSignupStep1()) {
+        return;
+      }
+    }
+    
+    const nextStep = currentSignupStep + direction;
+    if (nextStep > 0 && nextStep <= 2) {
+      setCurrentSignupStep(nextStep);
+    }
+  };
+
+  // Add back the signin/signup functions
   async function signInWithEmail() {
-    if (!email || !password) {
-      Alert.alert("Please enter your email and password");
+    // Validate email and password
+    const isEmailValid = validateEmail(email);
+    const isPasswordValid = validatePassword(password);
+    
+    if (!isEmailValid || !isPasswordValid) {
       return;
     }
 
@@ -143,8 +358,8 @@ export default function Auth() {
   }
 
   async function requestOtp() {
-    if (!email) {
-      Alert.alert("Please enter your email address");
+    // Validate email
+    if (!validateEmail(email)) {
       return;
     }
 
@@ -177,65 +392,8 @@ export default function Auth() {
   }
 
   async function signUpWithEmail() {
-    if (!email || !password || !name) {
-      Alert.alert("Please enter your email, password, and full name");
-      return;
-    }
-
-    // Added validations for registration form content
-    if (
-      !email.trim() ||
-      !password.trim() ||
-      !confirmPassword.trim() ||
-      !name.trim() ||
-      !username.trim() ||
-      !contactNumber.trim() ||
-      !address.trim() ||
-      !gender.trim() ||
-      !department.trim() ||
-      !program.trim() ||
-      !programYearLevel.trim()
-    ) {
-      Alert.alert("Validation Error", "Please fill in all required fields.");
-      return;
-    }
-
-    // Validate birthday is not in the future
-    if (birthday > new Date()) {
-      Alert.alert("Validation Error", "Birthday cannot be in the future.");
-      return;
-    }
-
-    // Validate user is at least 13 years old
-    const thirteenYearsAgo = new Date();
-    thirteenYearsAgo.setFullYear(thirteenYearsAgo.getFullYear() - 13);
-    if (birthday > thirteenYearsAgo) {
-      Alert.alert("Validation Error", "You must be at least 13 years old.");
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert("Validation Error", "Please enter a valid email address.");
-      return;
-    }
-
-    const phoneRegex = /^\d{10,11}$/;
-    if (!phoneRegex.test(contactNumber)) {
-      Alert.alert(
-        "Validation Error",
-        "Please enter a valid contact number with 10 or 11 digits."
-      );
-      return;
-    }
-
-    // Validate password match and length
-    if (password !== confirmPassword) {
-      Alert.alert("Password Error", "Passwords do not match");
-      return;
-    }
-    if (password.length < 6) {
-      Alert.alert("Password Error", "Password must be at least 6 characters");
+    // Validate all fields on the second step
+    if (!validateSignupStep2()) {
       return;
     }
 
@@ -332,7 +490,7 @@ export default function Auth() {
     setLoading(false);
   }
 
-  // Add new function to resend confirmation email
+  // Resend confirmation email function
   async function resendConfirmationEmail(email: string) {
     try {
       const { error } = await supabase.auth.resend({
@@ -386,14 +544,6 @@ export default function Auth() {
 
     setLoading(false);
   }
-
-  // Function to navigate between signup steps
-  const navigateStep = (direction: any) => {
-    const nextStep = currentSignupStep + direction;
-    if (nextStep > 0 && nextStep <= 2) {
-      setCurrentSignupStep(nextStep);
-    }
-  };
 
   // Format date as YYYY-MM-DD for display
   const formatDate = (date: any) => {
@@ -541,13 +691,18 @@ export default function Auth() {
                         name: "envelope",
                         color: "#34d399",
                       }}
-                      onChangeText={(text) => setEmail(text)}
+                      onChangeText={(text) => {
+                        setEmail(text);
+                        if (emailError) validateEmail(text);
+                      }}
                       value={email}
-                      placeholder="email@address.com"
+                      placeholder="email@hnu.edu.ph"
                       autoCapitalize={"none"}
                       keyboardType="email-address"
                       containerStyle={styles.input}
                       labelStyle={styles.inputLabel}
+                      errorMessage={emailError}
+                      errorStyle={styles.errorText}
                     />
                   </View>
 
@@ -565,13 +720,19 @@ export default function Auth() {
                         color: "#888",
                         onPress: () => setShowPassword(!showPassword),
                       }}
-                      onChangeText={(text) => setPassword(text)}
+                      onChangeText={(text) => {
+                        setPassword(text);
+                        if (passwordError) validatePassword(text);
+                        if (confirmPasswordError && confirmPassword) validateConfirmPassword(text, confirmPassword);
+                      }}
                       value={password}
                       secureTextEntry={!showPassword}
                       placeholder="Password"
                       autoCapitalize={"none"}
                       containerStyle={styles.input}
                       labelStyle={styles.inputLabel}
+                      errorMessage={passwordError}
+                      errorStyle={styles.errorText}
                     />
                   </View>
                   {/* Added Confirm Password Field for Signup */}
@@ -590,13 +751,18 @@ export default function Auth() {
                           color: "#888",
                           onPress: () => setShowPassword(!showPassword),
                         }}
-                        onChangeText={(text) => setConfirmPassword(text)}
+                        onChangeText={(text) => {
+                          setConfirmPassword(text);
+                          if (confirmPasswordError) validateConfirmPassword(password, text);
+                        }}
                         value={confirmPassword}
                         secureTextEntry={!showPassword}
                         placeholder="Confirm Password"
                         autoCapitalize={"none"}
                         containerStyle={styles.input}
                         labelStyle={styles.inputLabel}
+                        errorMessage={confirmPasswordError}
+                        errorStyle={styles.errorText}
                       />
                     </View>
                   )}
@@ -614,11 +780,16 @@ export default function Auth() {
                         name: "user",
                         color: "#34d399",
                       }}
-                      onChangeText={(text) => setName(text)}
+                      onChangeText={(text) => {
+                        setName(text);
+                        if (nameError) validateName(text);
+                      }}
                       value={name}
                       placeholder="John Doe"
                       containerStyle={styles.input}
                       labelStyle={styles.inputLabel}
+                      errorMessage={nameError}
+                      errorStyle={styles.errorText}
                     />
                   </View>
                   <View style={styles.inputContainer}>
@@ -629,11 +800,16 @@ export default function Auth() {
                         name: "at",
                         color: "#34d399",
                       }}
-                      onChangeText={(text) => setUsername(text)}
+                      onChangeText={(text) => {
+                        setUsername(text);
+                        if (usernameError) validateUsername(text);
+                      }}
                       value={username}
                       placeholder="johndoe"
                       containerStyle={styles.input}
                       labelStyle={styles.inputLabel}
+                      errorMessage={usernameError}
+                      errorStyle={styles.errorText}
                     />
                   </View>
 
@@ -646,20 +822,25 @@ export default function Auth() {
                         shimmerColors={["#f5f5f5", "#e0e0e0", "#f5f5f5"]}
                       />
                     ) : (
-                      <TouchableOpacity
-                        style={styles.datePickerButton}
-                        onPress={() => setShowDatePicker(true)}
-                      >
-                        <Icon
-                          type="font-awesome"
-                          name="calendar"
-                          color="#34d399"
-                          size={16}
-                        />
-                        <Text style={styles.dateText}>
-                          {formatDate(birthday)}
-                        </Text>
-                      </TouchableOpacity>
+                      <>
+                        <TouchableOpacity
+                          style={styles.datePickerButton}
+                          onPress={() => setShowDatePicker(true)}
+                        >
+                          <Icon
+                            type="font-awesome"
+                            name="calendar"
+                            color="#34d399"
+                            size={16}
+                          />
+                          <Text style={styles.dateText}>
+                            {formatDate(birthday)}
+                          </Text>
+                        </TouchableOpacity>
+                        {birthdayError ? (
+                          <Text style={styles.errorText}>{birthdayError}</Text>
+                        ) : null}
+                      </>
                     )}
                   </View>
 
@@ -711,12 +892,17 @@ export default function Auth() {
                         name: "phone",
                         color: "#34d399",
                       }}
-                      onChangeText={(text) => setContactNumber(text)}
+                      onChangeText={(text) => {
+                        setContactNumber(text);
+                        if (contactNumberError) validateContactNumber(text);
+                      }}
                       value={contactNumber}
                       placeholder="09123456789"
                       keyboardType="phone-pad"
                       containerStyle={styles.input}
                       labelStyle={styles.inputLabel}
+                      errorMessage={contactNumberError}
+                      errorStyle={styles.errorText}
                     />
                   </View>
 
@@ -728,11 +914,16 @@ export default function Auth() {
                         name: "map-marker",
                         color: "#34d399",
                       }}
-                      onChangeText={(text) => setAddress(text)}
+                      onChangeText={(text) => {
+                        setAddress(text);
+                        if (addressError) validateAddress(text);
+                      }}
                       value={address}
                       placeholder="123 Main St"
                       containerStyle={styles.input}
                       labelStyle={styles.inputLabel}
+                      errorMessage={addressError}
+                      errorStyle={styles.errorText}
                     />
                   </View>
 
@@ -745,14 +936,19 @@ export default function Auth() {
                         shimmerColors={["#f5f5f5", "#e0e0e0", "#f5f5f5"]}
                       />
                     ) : (
-                      <TouchableOpacity
-                        style={styles.dropdown}
-                        onPress={() => setGenderModalVisible(true)}
-                      >
-                        <Text style={styles.dropdownValue}>
-                          {gender || "Select Gender"}
-                        </Text>
-                      </TouchableOpacity>
+                      <>
+                        <TouchableOpacity
+                          style={styles.dropdown}
+                          onPress={() => setGenderModalVisible(true)}
+                        >
+                          <Text style={styles.dropdownValue}>
+                            {gender || "Select Gender"}
+                          </Text>
+                        </TouchableOpacity>
+                        {genderError ? (
+                          <Text style={styles.errorText}>{genderError}</Text>
+                        ) : null}
+                      </>
                     )}
                   </View>
 
@@ -780,25 +976,35 @@ export default function Auth() {
                         </>
                       ) : (
                         <>
-                          <TouchableOpacity
-                            onPress={() => setDeptModalVisible(true)}
-                            style={styles.dropdown}
-                          >
-                            <Text style={styles.dropdownLabel}>Department</Text>
-                            <Text style={styles.dropdownValue}>
-                              {department || "Select"}
-                            </Text>
-                          </TouchableOpacity>
+                          <View style={styles.halfDropdownContainer}>
+                            <TouchableOpacity
+                              onPress={() => setDeptModalVisible(true)}
+                              style={styles.dropdown}
+                            >
+                              <Text style={styles.dropdownLabel}>Department</Text>
+                              <Text style={styles.dropdownValue}>
+                                {department || "Select"}
+                              </Text>
+                            </TouchableOpacity>
+                            {departmentError ? (
+                              <Text style={styles.errorText}>{departmentError}</Text>
+                            ) : null}
+                          </View>
 
-                          <TouchableOpacity
-                            onPress={() => setYearModalVisible(true)}
-                            style={styles.dropdown}
-                          >
-                            <Text style={styles.dropdownLabel}>Year Level</Text>
-                            <Text style={styles.dropdownValue}>
-                              {programYearLevel || "Select"}
-                            </Text>
-                          </TouchableOpacity>
+                          <View style={styles.halfDropdownContainer}>
+                            <TouchableOpacity
+                              onPress={() => setYearModalVisible(true)}
+                              style={styles.dropdown}
+                            >
+                              <Text style={styles.dropdownLabel}>Year Level</Text>
+                              <Text style={styles.dropdownValue}>
+                                {programYearLevel || "Select"}
+                              </Text>
+                            </TouchableOpacity>
+                            {yearLevelError ? (
+                              <Text style={styles.errorText}>{yearLevelError}</Text>
+                            ) : null}
+                          </View>
                         </>
                       )}
                     </View>
@@ -812,15 +1018,20 @@ export default function Auth() {
                         shimmerColors={["#f5f5f5", "#e0e0e0", "#f5f5f5"]}
                       />
                     ) : (
-                      <TouchableOpacity
-                        onPress={() => setProgramModalVisible(true)}
-                        style={[styles.dropdown, styles.fullWidthDropdown]}
-                      >
-                        <Text style={styles.dropdownLabel}>Program</Text>
-                        <Text style={styles.dropdownValue}>
-                          {program || "Select Program"}
-                        </Text>
-                      </TouchableOpacity>
+                      <>
+                        <TouchableOpacity
+                          onPress={() => setProgramModalVisible(true)}
+                          style={[styles.dropdown, styles.fullWidthDropdown]}
+                        >
+                          <Text style={styles.dropdownLabel}>Program</Text>
+                          <Text style={styles.dropdownValue}>
+                            {program || "Select Program"}
+                          </Text>
+                        </TouchableOpacity>
+                        {programError ? (
+                          <Text style={styles.errorText}>{programError}</Text>
+                        ) : null}
+                      </>
                     )}
                   </View>
 
@@ -1538,5 +1749,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 8,
+  },
+  errorText: {
+    color: "#d32f2f",
+    fontSize: 12,
+    marginTop: 2,
+    marginBottom: 5,
+  },
+  halfDropdownContainer: {
+    width: "48%",
   },
 });
