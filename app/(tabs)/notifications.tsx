@@ -153,7 +153,7 @@ interface Notification {
 // Interface for appointment notifications
 interface AppointmentNotification {
   id: string;
-  type: 'rescheduled' | 'cancelled' | 'group_added';
+  type: 'rescheduled' | 'cancelled' | 'group_added' | 'follow_up_needed' | 'no_show';
   content: string;
   date: string; // For sorting
   appointmentDate?: string;
@@ -177,7 +177,7 @@ const NotificationUI: React.FC = () => {
   const { session } = useAuth();
   const [activeTab, setActiveTab] = useState<'appointment' | 'regular'>('appointment');
   // New state for appointment notification filters
-  const [appointmentFilter, setAppointmentFilter] = useState<'all' | 'rescheduled' | 'cancelled' | 'group_added'>('all');
+  const [appointmentFilter, setAppointmentFilter] = useState<'all' | 'rescheduled' | 'cancelled' | 'group_added' | 'follow_up_needed' | 'no_show'>('all');
 
   useEffect(() => {
     // Load notification sound
@@ -471,7 +471,123 @@ const NotificationUI: React.FC = () => {
         }
       }
 
-      // 3. Fetch GROUP appointments for the user - simplified query first
+      // 3. Fetch FOLLOW_UP_NEEDED appointments
+      const { data: followUpAppointments, error: followUpError } = await supabase
+        .from('appointments')
+        .select(`
+          appointment_id,
+          status,
+          counselor_id,
+          availability_schedule_id
+        `)
+        .eq('user_id', session.user.id)
+        .eq('status', 'follow_up_needed');
+
+      if (followUpError) {
+        console.error('Error fetching follow-up appointments:', followUpError);
+      } else {
+        // Process each follow-up appointment
+        for (const appointment of (followUpAppointments || [])) {
+          try {
+            // Get counselor details
+            const { data: counselorData, error: counselorError } = await supabase
+              .from('users')
+              .select('name')
+              .eq('user_id', appointment.counselor_id)
+              .single();
+              
+            if (counselorError) {
+              console.error('Error fetching counselor:', counselorError);
+              continue;
+            }
+            
+            // Get availability details
+            const { data: availabilityData, error: availabilityError } = await supabase
+              .from('availability_schedules')
+              .select('date, start_time, end_time')
+              .eq('availability_schedule_id', appointment.availability_schedule_id)
+              .single();
+              
+            if (availabilityError) {
+              console.error('Error fetching availability:', availabilityError);
+              continue;
+            }
+            
+            // Now we can safely construct the notification
+            appointmentNotifications.push({
+              id: appointment.appointment_id,
+              type: 'follow_up_needed',
+              content: `Your appointment on ${formatDate(new Date(availabilityData.date))} at ${convert24To12Hour(availabilityData.start_time)} requires follow-up with ${counselorData.name}.`,
+              date: availabilityData.date + 'T' + availabilityData.start_time,
+              appointmentDate: availabilityData.date,
+              appointmentTime: `${convert24To12Hour(availabilityData.start_time)} - ${convert24To12Hour(availabilityData.end_time)}`,
+              counselorName: counselorData.name
+            });
+          } catch (err) {
+            console.error('Error processing follow-up appointment:', err);
+          }
+        }
+      }
+
+      // 4. Fetch NO_SHOW appointments
+      const { data: noShowAppointments, error: noShowError } = await supabase
+        .from('appointments')
+        .select(`
+          appointment_id,
+          status,
+          counselor_id,
+          availability_schedule_id
+        `)
+        .eq('user_id', session.user.id)
+        .eq('status', 'no_show');
+
+      if (noShowError) {
+        console.error('Error fetching no-show appointments:', noShowError);
+      } else {
+        // Process each no-show appointment
+        for (const appointment of (noShowAppointments || [])) {
+          try {
+            // Get counselor details
+            const { data: counselorData, error: counselorError } = await supabase
+              .from('users')
+              .select('name')
+              .eq('user_id', appointment.counselor_id)
+              .single();
+              
+            if (counselorError) {
+              console.error('Error fetching counselor:', counselorError);
+              continue;
+            }
+            
+            // Get availability details
+            const { data: availabilityData, error: availabilityError } = await supabase
+              .from('availability_schedules')
+              .select('date, start_time, end_time')
+              .eq('availability_schedule_id', appointment.availability_schedule_id)
+              .single();
+              
+            if (availabilityError) {
+              console.error('Error fetching availability:', availabilityError);
+              continue;
+            }
+            
+            // Now we can safely construct the notification
+            appointmentNotifications.push({
+              id: appointment.appointment_id,
+              type: 'no_show',
+              content: `You missed your appointment on ${formatDate(new Date(availabilityData.date))} at ${convert24To12Hour(availabilityData.start_time)} with ${counselorData.name}.`,
+              date: availabilityData.date + 'T' + availabilityData.start_time,
+              appointmentDate: availabilityData.date,
+              appointmentTime: `${convert24To12Hour(availabilityData.start_time)} - ${convert24To12Hour(availabilityData.end_time)}`,
+              counselorName: counselorData.name
+            });
+          } catch (err) {
+            console.error('Error processing no-show appointment:', err);
+          }
+        }
+      }
+
+      // 5. Fetch GROUP appointments for the user - simplified query first
       const { data: groupAppointments, error: groupError } = await supabase
         .from('groupappointments')
         .select(`
@@ -622,6 +738,10 @@ const NotificationUI: React.FC = () => {
         return '❌';
       case 'group_added':
         return '👥';
+      case 'follow_up_needed':
+        return '📋';
+      case 'no_show':
+        return '🚫';
       default:
         return '📢';
     }
@@ -992,6 +1112,30 @@ const NotificationUI: React.FC = () => {
               >
                 <Text style={[styles.typeFilterText, appointmentFilter === 'cancelled' && styles.typeFilterTextActive]}>
                   ❌ Cancelled
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.typeFilterButton,
+                  appointmentFilter === 'follow_up_needed' && styles.typeFilterActive
+                ]}
+                onPress={() => setAppointmentFilter('follow_up_needed')}
+              >
+                <Text style={[styles.typeFilterText, appointmentFilter === 'follow_up_needed' && styles.typeFilterTextActive]}>
+                  📋 Follow-up
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.typeFilterButton,
+                  appointmentFilter === 'no_show' && styles.typeFilterActive
+                ]}
+                onPress={() => setAppointmentFilter('no_show')}
+              >
+                <Text style={[styles.typeFilterText, appointmentFilter === 'no_show' && styles.typeFilterTextActive]}>
+                  🚫 No-show
                 </Text>
               </TouchableOpacity>
               

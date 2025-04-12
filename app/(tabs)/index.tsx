@@ -148,22 +148,61 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [nameLoading, setNameLoading] = useState(true);
   const [moodDataLoading, setMoodDataLoading] = useState(true);
+  const [weeklyChartLoading, setWeeklyChartLoading] = useState(true);
+  const [monthlyChartLoading, setMonthlyChartLoading] = useState(true);
   const [ratingLoading, setRatingLoading] = useState(true);
   const [isNetworkModalVisible, setIsNetworkModalVisible] = useState(false);
   const [networkState, setNetworkState] = useState<{isConnected: boolean | null, type: string | null}>({ 
     isConnected: true, 
     type: null 
   });
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [selectedWeek, setSelectedWeek] = useState(new Date());
 
-  // Define getMoodData inside the component
-  const getMoodData = async () => {
-    setMoodDataLoading(true);
-    const weekData = await fetchLatestMoodTrackerData();
-    const monthData = await fetchMonthlyMoodTrackerData();
-    setMoodData(weekData);
-    setMonthlyMoodData(monthData);
-    setMoodDataLoading(false);
-  };
+  // Define async data fetching functions
+  async function fetchLatestMoodTrackerData(date: Date = new Date()): Promise<MoodData[] | null> {
+    const now = new Date(date);
+    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(endOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+  
+    let { data: mood_tracker, error } = await supabase
+      .from("mood_tracker")
+      .select("mood_type, intensity, tracked_at")
+      .eq("user_id", session?.user.id)
+      .gte("tracked_at", startOfWeek.toISOString())
+      .lte("tracked_at", endOfWeek.toISOString())
+      .order("tracked_at", { ascending: false });
+  
+    if (error) {
+      console.error("Error fetching mood tracker data:", error);
+      return null;
+    }
+    return mood_tracker || null;
+  }
+
+  async function fetchMonthlyMoodTrackerData(date: Date = new Date()): Promise<MoodData[] | null> {
+    const selectedDate = new Date(date);
+    const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+    const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+
+    let { data: mood_tracker, error } = await supabase
+      .from("mood_tracker")
+      .select("mood_type, intensity, tracked_at")
+      .eq("user_id", session?.user.id)
+      .gte("tracked_at", startOfMonth.toISOString())
+      .lte("tracked_at", endOfMonth.toISOString())
+      .order("tracked_at", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching monthly mood tracker data:", error);
+      return null;
+    }
+    return mood_tracker || null;
+  }
 
   useEffect(() => {
     // Subscribe to network state updates
@@ -207,7 +246,21 @@ export default function HomeScreen() {
     if (state.isConnected) {
       setIsNetworkModalVisible(false);
       // Reload data
-      getMoodData();
+      setMoodDataLoading(true);
+      setWeeklyChartLoading(true);
+      setMonthlyChartLoading(true);
+      Promise.all([
+        fetchLatestMoodTrackerData(selectedWeek).then(data => {
+          setMoodData(data);
+          setWeeklyChartLoading(false);
+        }),
+        fetchMonthlyMoodTrackerData(selectedMonth).then(data => {
+          setMonthlyMoodData(data);
+          setMonthlyChartLoading(false);
+        })
+      ]).then(() => {
+        setMoodDataLoading(false);
+      });
       getUserName();
       getUserRating();
       fetchAppointments();
@@ -217,7 +270,21 @@ export default function HomeScreen() {
   useEffect(() => {
     LogBox.ignoreAllLogs(); // Disable all log notifications
     
-    getMoodData();
+    // Initial data fetch
+    setWeeklyChartLoading(true);
+    setMonthlyChartLoading(true);
+    Promise.all([
+      fetchLatestMoodTrackerData(selectedWeek).then(data => {
+        setMoodData(data);
+        setWeeklyChartLoading(false);
+      }),
+      fetchMonthlyMoodTrackerData(selectedMonth).then(data => {
+        setMonthlyMoodData(data);
+        setMonthlyChartLoading(false);
+      })
+    ]).then(() => {
+      setMoodDataLoading(false);
+    });
 
     const channel = supabase.channel('custom-all-channel')
       .on(
@@ -225,7 +292,17 @@ export default function HomeScreen() {
         { event: '*', schema: 'public', table: 'mood_tracker' },
         (payload) => {
           console.log('At home page: Change received!', payload);
-          getMoodData();
+          // Re-fetch both datasets when mood data changes
+          setWeeklyChartLoading(true);
+          setMonthlyChartLoading(true);
+          fetchLatestMoodTrackerData(selectedWeek).then(data => {
+            setMoodData(data);
+            setWeeklyChartLoading(false);
+          });
+          fetchMonthlyMoodTrackerData(selectedMonth).then(data => {
+            setMonthlyMoodData(data);
+            setMonthlyChartLoading(false);
+          });
         }
       )
       .subscribe();
@@ -313,51 +390,6 @@ export default function HomeScreen() {
       });
     }
   }, [session?.user.id]);
-
-  async function fetchLatestMoodTrackerData(): Promise<MoodData[] | null> {
-    const now = new Date();
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-    startOfWeek.setHours(0, 0, 0, 0);
-    
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(endOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
-  
-    let { data: mood_tracker, error } = await supabase
-      .from("mood_tracker")
-      .select("mood_type, intensity, tracked_at")
-      .eq("user_id", session?.user.id)
-      .gte("tracked_at", startOfWeek.toISOString())
-      .lte("tracked_at", endOfWeek.toISOString())
-      .order("tracked_at", { ascending: false }); // change order to descending
-      // .limit(6); // remove or adjust limit as needed
-  
-    if (error) {
-      console.error("Error fetching mood tracker data:", error);
-      return null;
-    }
-    return mood_tracker || null;
-  }
-
-  async function fetchMonthlyMoodTrackerData(): Promise<MoodData[] | null> {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-    let { data: mood_tracker, error } = await supabase
-      .from("mood_tracker")
-      .select("mood_type, intensity, tracked_at")
-      .eq("user_id", session?.user.id)
-      .gte("tracked_at", startOfMonth.toISOString())
-      .lte("tracked_at", endOfMonth.toISOString())
-      .order("tracked_at", { ascending: true });
-
-    if (error) {
-      console.error("Error fetching monthly mood tracker data:", error);
-      return null;
-    }
-    return mood_tracker || null;
-  }
 
   async function fetchUserName() {
     const { data: user, error } = await supabase
@@ -739,6 +771,53 @@ export default function HomeScreen() {
     </View>
   );
 
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    const newDate = new Date(selectedMonth);
+    if (direction === 'prev') {
+      newDate.setMonth(newDate.getMonth() - 1);
+    } else {
+      newDate.setMonth(newDate.getMonth() + 1);
+    }
+    setSelectedMonth(newDate);
+    // Fetch only the monthly data when month navigation changes
+    setMonthlyChartLoading(true);
+    fetchMonthlyMoodTrackerData(newDate).then(data => {
+      setMonthlyMoodData(data);
+      setMonthlyChartLoading(false);
+    });
+  };
+
+  const navigateWeek = (direction: 'prev' | 'next') => {
+    const newDate = new Date(selectedWeek);
+    if (direction === 'prev') {
+      newDate.setDate(newDate.getDate() - 7);
+    } else {
+      newDate.setDate(newDate.getDate() + 7);
+    }
+    setSelectedWeek(newDate);
+    // Fetch only the weekly data when week navigation changes
+    setWeeklyChartLoading(true);
+    fetchLatestMoodTrackerData(newDate).then(data => {
+      setMoodData(data);
+      setWeeklyChartLoading(false);
+    });
+  };
+
+  const getWeekDateRange = (date: Date) => {
+    const now = new Date(date);
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(endOfWeek.getDate() + 6);
+    
+    return `${startOfWeek.toLocaleDateString('en-US', { day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  };
+
+  const getMonthName = (date: Date) => {
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {nameLoading ? renderWelcomeShimmer() : (
@@ -855,35 +934,61 @@ export default function HomeScreen() {
       {moodDataLoading ? renderChartShimmer() : (
         lineChartData && lineChartData.datasets && lineChartData.datasets[0].data.some(value => !isNaN(value)) && (
           <View style={styles.chartContainer}>
-            <Text style={styles.chartTitle}>Weekly Mood Trends</Text>
-            <View style={styles.chartWrapper}>
-              <LineChart
-                data={lineChartData}
-                width={screenWidth - 40}
-                height={220}
-                chartConfig={{
-                  backgroundGradientFrom: "#ffffff",
-                  backgroundGradientTo: "#ffffff",
-                  decimalPlaces: 0,
-                  color: (opacity = 1) => `rgba(52, 211, 153, ${opacity})`,
-                  labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                  style: { borderRadius: 16 },
-                  propsForDots: {
-                    r: "5",
-                    strokeWidth: "2",
-                    stroke: "#34d399"
-                  }
-                }}
-                style={styles.chart}
-                bezier
-                onDataPointClick={(data) => {
-                  const label = lineChartData.labels[data.index];
-                  const value = data.value;
-                  const moodType = lineChartData.types[data.index];
-                  alert(`${label}: ${moodType ? `${moodType} (${value}/10)` : 'No data'}`);
-                }}
-              />
+            <View style={styles.chartHeaderContainer}>
+              <TouchableOpacity 
+                style={styles.navigationButton} 
+                onPress={() => navigateWeek('prev')}
+              >
+                <Text style={styles.navigationButtonText}>←</Text>
+              </TouchableOpacity>
+              
+              <Text style={styles.chartTitle}>Weekly Mood Trends</Text>
+              
+              <TouchableOpacity 
+                style={styles.navigationButton} 
+                onPress={() => navigateWeek('next')}
+              >
+                <Text style={styles.navigationButtonText}>→</Text>
+              </TouchableOpacity>
             </View>
+            
+            <Text style={styles.dateRangeText}>{getWeekDateRange(selectedWeek)}</Text>
+            
+            {weeklyChartLoading ? (
+              <ShimmerPlaceholder
+                style={{ width: screenWidth - 80, height: 220, borderRadius: 8, alignSelf: 'center' }}
+                shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+              />
+            ) : (
+              <View style={styles.chartWrapper}>
+                <LineChart
+                  data={lineChartData}
+                  width={screenWidth - 40}
+                  height={220}
+                  chartConfig={{
+                    backgroundGradientFrom: "#ffffff",
+                    backgroundGradientTo: "#ffffff",
+                    decimalPlaces: 0,
+                    color: (opacity = 1) => `rgba(52, 211, 153, ${opacity})`,
+                    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                    style: { borderRadius: 16 },
+                    propsForDots: {
+                      r: "5",
+                      strokeWidth: "2",
+                      stroke: "#34d399"
+                    }
+                  }}
+                  style={styles.chart}
+                  bezier
+                  onDataPointClick={(data) => {
+                    const label = lineChartData.labels[data.index];
+                    const value = data.value;
+                    const moodType = lineChartData.types[data.index];
+                    alert(`${label}: ${moodType ? `${moodType} (${value}/10)` : 'No data'}`);
+                  }}
+                />
+              </View>
+            )}
             <View style={styles.legendContainer}>
               {Array.from(new Set(lineChartData.types)).filter(type => type).map((type, index) => (
                 <View key={index} style={styles.legendItem}>
@@ -899,35 +1004,61 @@ export default function HomeScreen() {
       {moodDataLoading ? renderChartShimmer() : (
         monthlyChartData && (
           <View style={styles.chartContainer}>
-            <Text style={styles.chartTitle}>Monthly Mood Trends</Text>
-            <View style={styles.chartWrapper}>
-              <LineChart
-                data={monthlyChartData}
-                width={screenWidth - 40}
-                height={220}
-                chartConfig={{
-                  backgroundGradientFrom: "#ffffff",
-                  backgroundGradientTo: "#ffffff",
-                  decimalPlaces: 0,
-                  color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
-                  labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                  style: { borderRadius: 16 },
-                  propsForDots: {
-                    r: "5",
-                    strokeWidth: "2",
-                    stroke: "#8641f4"
-                  }
-                }}
-                style={styles.chart}
-                bezier
-                onDataPointClick={(data) => {
-                  const label = monthlyChartData.labels[data.index];
-                  const value = data.value;
-                  const moodType = monthlyChartData.types[data.index];
-                  alert(`${label}: ${moodType ? `${moodType} (${value}/10)` : 'No data'}`);
-                }}
-              />
+            <View style={styles.chartHeaderContainer}>
+              <TouchableOpacity 
+                style={styles.navigationButton} 
+                onPress={() => navigateMonth('prev')}
+              >
+                <Text style={styles.navigationButtonText}>←</Text>
+              </TouchableOpacity>
+              
+              <Text style={styles.chartTitle}>Monthly Mood Trends</Text>
+              
+              <TouchableOpacity 
+                style={styles.navigationButton} 
+                onPress={() => navigateMonth('next')}
+              >
+                <Text style={styles.navigationButtonText}>→</Text>
+              </TouchableOpacity>
             </View>
+            
+            <Text style={styles.dateRangeText}>{getMonthName(selectedMonth)}</Text>
+            
+            {monthlyChartLoading ? (
+              <ShimmerPlaceholder
+                style={{ width: screenWidth - 80, height: 220, borderRadius: 8, alignSelf: 'center' }}
+                shimmerColors={['#f5f5f5', '#e0e0e0', '#f5f5f5']}
+              />
+            ) : (
+              <View style={styles.chartWrapper}>
+                <LineChart
+                  data={monthlyChartData}
+                  width={screenWidth - 40}
+                  height={220}
+                  chartConfig={{
+                    backgroundGradientFrom: "#ffffff",
+                    backgroundGradientTo: "#ffffff",
+                    decimalPlaces: 0,
+                    color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
+                    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                    style: { borderRadius: 16 },
+                    propsForDots: {
+                      r: "5",
+                      strokeWidth: "2",
+                      stroke: "#8641f4"
+                    }
+                  }}
+                  style={styles.chart}
+                  bezier
+                  onDataPointClick={(data) => {
+                    const label = monthlyChartData.labels[data.index];
+                    const value = data.value;
+                    const moodType = monthlyChartData.types[data.index];
+                    alert(`${label}: ${moodType ? `${moodType} (${value}/10)` : 'No data'}`);
+                  }}
+                />
+              </View>
+            )}
             <View style={styles.legendContainer}>
               {Array.from(new Set(monthlyChartData.types)).filter(type => type).map((type, index) => (
                 <View key={index} style={styles.legendItem}>
@@ -1418,4 +1549,32 @@ const styles = StyleSheet.create({
       marginTop: 10,
       fontFamily: "System",
     },
-  });
+  chartHeaderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
+    paddingHorizontal: 5,
+  },
+  navigationButton: {
+    padding: 8,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 20,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  navigationButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#64748b',
+  },
+  dateRangeText: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 15,
+    fontFamily: "System",
+  },
+});
