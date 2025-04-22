@@ -1127,11 +1127,12 @@ export default function HomeScreen() {
         />
       ) : (
         <TouchableOpacity
-          style={styles.ratingButton}
-          onPress={() => setShowRatingModal(true)}
+          style={[styles.ratingButton, userRating && styles.ratingButtonDisabled]}
+          onPress={() => userRating ? null : setShowRatingModal(true)}
+          disabled={!!userRating}
         >
           <Text style={styles.ratingButtonText}>
-            {userRating ? 'Update Your Rating' : 'Rate Our App'}
+            {userRating ? 'Thank You for Your Rating' : 'Rate Our App'}
           </Text>
           {userRating && (
             <Text style={styles.currentRating}>
@@ -1450,6 +1451,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 5,
     fontFamily: "System",
+  },
+  ratingButtonDisabled: {
+    backgroundColor: '#94a3b8',
   },
     modalContainer: {
       flex: 1,
